@@ -1,0 +1,1056 @@
+@{
+    Layout = null;
+    var userId         = ViewBag.UserId as string ?? "";
+    var genderRequired = (bool)(ViewBag.GenderRequired ?? false);
+}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>けんけつノート 計画管理</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #fff5f5; font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif; margin: 0; }
+        .page-wrap { max-width: 520px; margin: 0 auto; padding: 16px; }
+        .page-title { font-size: 1.4rem; font-weight: bold; color: #c0392b; }
+        .back-link { color: #c0392b; text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { text-decoration: underline; }
+        .summary-card { background: white; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 8px rgba(0,0,0,0.08); margin-bottom: 14px; }
+        .summary-row { display: flex; align-items: center; margin-bottom: 8px; gap: 8px; }
+        .summary-label { font-size: 0.78rem; color: #888; width: 52px; flex-shrink: 0; }
+        .progress { height: 12px; border-radius: 6px; background: #f0f0f0; flex: 1; }
+        .progress-bar-whole { height: 100%; background: linear-gradient(90deg, #e74c3c, #c0392b); border-radius: 6px; }
+        .progress-bar-comp  { height: 100%; background: linear-gradient(90deg, #3498db, #2980b9); border-radius: 6px; }
+        .summary-val { font-size: 0.8rem; color: #555; white-space: nowrap; min-width: 110px; text-align: right; }
+        .next-row { display: flex; text-align: center; margin-bottom: 8px; }
+        .next-col { flex: 1; }
+        .next-col:first-child { border-right: 1px solid #f0f0f0; }
+        .next-label { font-size: 0.75rem; color: #aaa; }
+        .next-date  { font-size: 0.88rem; font-weight: 700; color: #333; }
+        .restriction-list { margin-top: 10px; border-top: 1px solid #f0f0f0; padding-top: 10px; }
+        .restriction-item { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; padding: 4px 0; color: #555; border-bottom: 1px solid #f8f0ff; }
+        .restriction-dot { width: 8px; height: 8px; border-radius: 50%; background: #9b59b6; flex-shrink: 0; }
+        .restriction-del { background: none; border: none; color: #ccc; cursor: pointer; font-size: 0.75rem; margin-left: auto; flex-shrink: 0; }
+        .restriction-del:hover { color: #e74c3c; }
+        .restriction-edit { background: none; border: none; color: #ccc; cursor: pointer; font-size: 0.75rem; flex-shrink: 0; }
+        .restriction-edit:hover { color: #e67e22; }
+        .add-restriction-btn {
+            display: flex; align-items: center; gap: 5px;
+            background: none; border: 1px dashed #9b59b6; border-radius: 6px;
+            color: #9b59b6; font-size: 0.78rem; padding: 4px 10px; cursor: pointer;
+            margin-top: 6px; width: 100%; box-sizing: border-box;
+        }
+        .add-restriction-btn:hover { background: #f8f0ff; }
+        .month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .month-nav button { background: none; border: 1.5px solid #ddd; border-radius: 8px; padding: 5px 12px; color: #555; cursor: pointer; }
+        .month-nav button:hover { background: #f8f8f8; }
+        .month-title { font-size: 1.15rem; font-weight: 700; color: #333; }
+        .calendar-card { background: white; border-radius: 12px; box-shadow: 0 1px 8px rgba(0,0,0,0.08); overflow: hidden; margin-bottom: 14px; }
+        .cal-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .cal-table thead th { text-align: center; font-size: 0.75rem; font-weight: 700; padding: 7px 0; border-bottom: 2px solid #f0f0f0; background: #fafafa; }
+        .cal-table thead th:first-child { color: #e74c3c; }
+        .cal-table thead th:last-child  { color: #3498db; }
+        .cal-cell { vertical-align: top; padding: 4px 3px; min-height: 62px; height: 62px; border: 1px solid #f0f0f0; cursor: pointer; transition: background 0.12s; position: relative; }
+        .cal-cell:hover { background: #fff8f8; }
+        .cal-cell.other-month { background: #fafafa; cursor: default; }
+        .cal-cell.other-month:hover { background: #fafafa; }
+        .cal-cell.today { outline: 2px solid #e74c3c; outline-offset: -2px; }
+        .cal-cell.blocked-both-day  { background: linear-gradient(135deg, #fff0f3 0%, #ffe8ed 100%); }
+        .cal-cell.blocked-both-day:hover  { background: #ffd5dd; }
+        .cal-cell.blocked-whole-day { background: linear-gradient(135deg, #fffff0 0%, #fffde0 100%); }
+        .cal-cell.blocked-whole-day:hover { background: #fffbcc; }
+        .cal-cell.blocked-comp-day  { background: linear-gradient(135deg, #f0f8ff 0%, #e8f4fd 100%); }
+        .cal-cell.blocked-comp-day:hover  { background: #d0eaff; }
+        .cal-cell.restriction-day   { background: linear-gradient(135deg, #fdf0ff 0%, #f8e8ff 100%); }
+        .cal-cell.restriction-day:hover   { background: #f0d8ff; }
+        .cell-indicators { position: absolute; top: 2px; right: 2px; display: flex; flex-direction: column; gap: 1px; align-items: flex-end; }
+        .ind-dot { width: 5px; height: 5px; border-radius: 50%; display: inline-block; }
+        .ind-whole-interval { background: #e74c3c; }
+        .ind-comp-interval  { background: #3498db; }
+        .ind-star { font-size: 7px; line-height: 1; display: inline-block; font-weight: 900; }
+        .ind-whole-limit { color: #e74c3c; }
+        .ind-comp-limit  { color: #3498db; }
+        .ind-restriction { background: #9b59b6; }
+        .day-num { font-size: 0.78rem; font-weight: 700; color: #333; margin-bottom: 2px; }
+        .cal-cell.other-month .day-num { color: #ccc; }
+        .col-sun .day-num { color: #e74c3c !important; }
+        .col-sat .day-num { color: #3498db !important; }
+        .col-holiday .day-num { color: #e74c3c !important; }
+        .holiday-name { font-size: 0.6rem; color: #e74c3c; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 1px; }
+        .don-badge { display: block; width: 100%; font-size: 0.65rem; font-weight: 700; border-radius: 4px; padding: 1px 3px; margin-bottom: 2px; cursor: pointer; line-height: 1.4; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .badge-whole  { background: #fde8e8; color: #c0392b; border: 1px solid #f5c6c6; }
+        .badge-comp   { background: #e8f4fd; color: #2980b9; border: 1px solid #bde0f5; }
+        .badge-plan   { opacity: 0.7; }
+        .badge-actual { opacity: 1; }
+        .limit-badge { display: inline-block; font-size: 0.68rem; font-weight: 700; background: #fff3cd; color: #856404; border: 1px solid #ffc107; border-radius: 4px; padding: 1px 5px; margin-left: 4px; vertical-align: middle; }
+        .restriction-badge { display: inline-block; font-size: 0.68rem; font-weight: 700; background: #f0d8ff; color: #6c3483; border: 1px solid #9b59b6; border-radius: 4px; padding: 1px 5px; margin-left: 4px; vertical-align: middle; }
+        .don-tooltip { position: fixed; z-index: 9999; background: #1a1a2e; color: #fff; border-radius: 8px; padding: 8px 12px; font-size: 0.75rem; line-height: 1.7; box-shadow: 0 4px 16px rgba(0,0,0,0.3); pointer-events: none; opacity: 0; transition: opacity 0.15s; white-space: nowrap; max-width: 240px; }
+        .don-tooltip.show { opacity: 1; }
+        .don-tooltip.touch-mode { pointer-events: auto; padding-bottom: 10px; }
+        .don-tooltip .tt-title { font-size: 0.7rem; color: #aaa; margin-bottom: 3px; }
+        .don-tooltip .tt-row { display: flex; align-items: center; gap: 6px; }
+        .don-tooltip .tt-dot-red  { width:7px; height:7px; border-radius:50%; background:#e74c3c; flex-shrink:0; }
+        .don-tooltip .tt-dot-blue { width:7px; height:7px; border-radius:50%; background:#3498db; flex-shrink:0; }
+        .don-tooltip .tt-loading  { color: #aaa; font-size: 0.72rem; }
+        .don-tooltip .tt-actions { margin-top: 8px; padding-top: 7px; border-top: 1px solid rgba(255,255,255,0.15); display: flex; gap: 8px; }
+        .don-tooltip .tt-btn-detail { background: #e74c3c; color: white; border: none; border-radius: 12px; padding: 4px 12px; font-size: 0.72rem; font-weight: 600; cursor: pointer; }
+        .don-tooltip .tt-btn-close  { background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 12px; padding: 4px 12px; font-size: 0.72rem; cursor: pointer; }
+        .record-list-card { background: white; border-radius: 12px; box-shadow: 0 1px 8px rgba(0,0,0,0.08); padding: 14px 16px; margin-bottom: 14px; }
+        .record-list-title { font-size: 0.88rem; font-weight: 700; color: #555; margin-bottom: 10px; }
+        .record-list-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f5f5f5; font-size: 0.82rem; }
+        .record-list-item:last-child { border-bottom: none; }
+        .record-list-date { color: #888; width: 76px; flex-shrink: 0; }
+        .record-list-type { font-weight: 700; flex: 1; }
+        .record-list-notes { color: #aaa; font-size: 0.75rem; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .record-empty { color: #aaa; font-size: 0.82rem; text-align: center; padding: 12px 0; }
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-overlay.show { display: flex; }
+        .modal-box { background: white; border-radius: 16px; padding: 22px 20px; width: min(94vw, 400px); max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.22); animation: modalIn 0.15s ease; }
+        .modal-box.modal-lg { width: min(94vw, 520px); }
+        @@keyframes modalIn { from { transform: translateY(14px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-title { font-size: 1rem; font-weight: 700; margin-bottom: 14px; color: #333; }
+        .modal-close { float: right; background: none; border: none; font-size: 1.2rem; color: #aaa; cursor: pointer; }
+        .modal-close:hover { color: #555; }
+        .modal-footer-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+        .form-label-sm { font-size: 0.82rem; font-weight: 600; color: #555; margin-bottom: 4px; display: block; }
+        .form-group-sm { margin-bottom: 12px; }
+        .btn-red    { background: #e74c3c; color: white; border: none; border-radius: 20px; padding: 8px 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+        .btn-red:hover { background: #c0392b; }
+        .btn-blue   { background: #3498db; color: white; border: none; border-radius: 20px; padding: 8px 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+        .btn-green  { background: #27ae60; color: white; border: none; border-radius: 20px; padding: 8px 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+        .btn-green:hover { background: #219a52; }
+        .btn-orange { background: #e67e22; color: white; border: none; border-radius: 20px; padding: 8px 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+        .btn-orange:hover { background: #d35400; }
+        .btn-purple { background: #9b59b6; color: white; border: none; border-radius: 20px; padding: 8px 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+        .btn-purple:hover { background: #7d3c98; }
+        .btn-gray   { background: #ecf0f1; color: #555; border: none; border-radius: 20px; padding: 8px 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+        .btn-gray:hover { background: #dfe6e9; }
+        .btn-outline-red { background: none; color: #e74c3c; border: 1.5px solid #e74c3c; border-radius: 20px; padding: 6px 16px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+        .btn-outline-red:hover { background: #fde8e8; }
+        .rescheduled-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+        .rescheduled-table th { background: #f8f8f8; padding: 6px 8px; text-align: left; font-weight: 600; color: #666; border-bottom: 1px solid #eee; }
+        .rescheduled-table td { padding: 7px 8px; border-bottom: 1px solid #f5f5f5; }
+        .detail-row { display: flex; padding: 7px 0; border-bottom: 1px solid #f5f5f5; font-size: 0.85rem; }
+        .detail-key { color: #888; width: 56px; flex-shrink: 0; }
+        .detail-val { color: #333; font-weight: 600; }
+        .detail-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+        select.form-ctrl, input.form-ctrl { width: 100%; padding: 8px 10px; border: 1.5px solid #e0e0e0; border-radius: 8px; font-size: 0.88rem; background: white; color: #333; box-sizing: border-box; }
+        select.form-ctrl:focus, input.form-ctrl:focus { outline: none; border-color: #e74c3c; }
+        .loading-spinner { display: flex; justify-content: center; padding: 24px 0; }
+        .spinner-ring { width: 32px; height: 32px; border: 3px solid #f0e0e0; border-top-color: #e74c3c; border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @@keyframes spin { to { transform: rotate(360deg); } }
+        .legend { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: 0.75rem; color: #888; margin-bottom: 8px; }
+        .legend-item { display: flex; align-items: center; gap: 4px; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+        /* ── スタンプトグル ── */
+        .stamp-toggle-row { background:#f0fff4; border:1px solid #a8e6bc; border-radius:8px; padding:8px 10px; }
+        .toggle-label { display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.88rem; color:#2e7d32; }
+        .toggle-label input[type=checkbox] { display:none; }
+        .toggle-track { width:36px; height:20px; background:#ccc; border-radius:10px; flex-shrink:0; position:relative; transition:background 0.2s; }
+        .toggle-label input:checked ~ .toggle-track { background:#27ae60; }
+        .toggle-thumb { position:absolute; top:2px; left:2px; width:16px; height:16px; background:white; border-radius:50%; transition:left 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.2); }
+        .toggle-label input:checked ~ .toggle-track .toggle-thumb { left:18px; }
+        /* ── 献血ルーム選択 ── */
+        .room-select-btn { display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 10px; border:1.5px solid #e0e0e0; border-radius:8px; background:white; font-size:0.88rem; cursor:pointer; color:#333; text-align:left; box-sizing:border-box; }
+        .room-select-btn:hover { border-color:#e74c3c; }
+        .room-select-btn .room-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .room-select-btn .room-clear { flex-shrink:0; margin-left:6px; color:#bbb; font-size:0.75rem; }
+        .room-select-btn .room-clear:hover { color:#e74c3c; }
+        /* ── ルームピッカーモーダル ── */
+        .room-picker-search { width:100%; padding:9px 12px; border:1.5px solid #e0e0e0; border-radius:8px; font-size:0.9rem; box-sizing:border-box; margin-bottom:10px; }
+        .room-picker-search:focus { outline:none; border-color:#e74c3c; }
+        .pref-filter { display:flex; gap:6px; overflow-x:auto; padding-bottom:6px; margin-bottom:8px; scrollbar-width:thin; }
+        .pref-filter::-webkit-scrollbar { height:4px; }
+        .pref-filter::-webkit-scrollbar-thumb { background:#ddd; border-radius:2px; }
+        .pref-filter-btn { flex-shrink:0; padding:4px 10px; border:1.5px solid #ddd; border-radius:14px; background:white; font-size:0.75rem; cursor:pointer; white-space:nowrap; color:#555; }
+        .pref-filter-btn.active { border-color:#e74c3c; background:#fff0f0; color:#c0392b; font-weight:700; }
+        .room-list { max-height:300px; overflow-y:auto; border:1px solid #f0f0f0; border-radius:8px; }
+        .room-list-item { padding:9px 12px; font-size:0.85rem; cursor:pointer; border-bottom:1px solid #f5f5f5; display:flex; align-items:center; gap:8px; }
+        .room-list-item:last-child { border-bottom:none; }
+        .room-list-item:hover { background:#fff5f5; }
+        .room-list-item.none-item { color:#aaa; font-style:italic; }
+        .room-list-item .room-pref-tag { font-size:0.72rem; color:#aaa; flex-shrink:0; }
+        .room-list-item .closed-tag { font-size:0.7rem; color:#bbb; flex-shrink:0; }
+        .room-list-empty { padding:16px; text-align:center; color:#aaa; font-size:0.85rem; }
+        /* ── スタンプ反映確認 ── */
+        .stamp-confirm-room { font-size:1rem; font-weight:700; color:#333; text-align:center; margin:12px 0 4px; }
+        .stamp-confirm-note { font-size:0.8rem; color:#888; text-align:center; margin-bottom:4px; }
+        /* ── 性別バナー ── */
+        .gender-banner { background: #fff8e1; border: 1.5px solid #ffc107; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.85rem; color: #7d5a00; }
+        .gender-banner-text { flex: 1; }
+        .gender-banner-btn { background: #e67e22; color: white; border: none; border-radius: 16px; padding: 6px 14px; font-size: 0.82rem; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+        .gender-banner-btn:hover { background: #d35400; }
+        /* ── 性別選択モーダル ── */
+        .gender-choice-btns { display: flex; gap: 12px; margin: 16px 0 8px; }
+        .gender-choice-btn { flex: 1; padding: 16px 8px; border: 2px solid #ddd; border-radius: 12px; background: white; cursor: pointer; font-size: 1rem; font-weight: 600; transition: all 0.15s; }
+        .gender-choice-btn:hover { border-color: #e74c3c; background: #fff5f5; }
+        .gender-choice-btn.selected { border-color: #e74c3c; background: #fff0f0; color: #c0392b; }
+        .gender-limit-note { font-size: 0.78rem; color: #888; text-align: center; margin-bottom: 4px; }
+        /* ── ナビゲーション ── */
+        .nav-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #ffebeb; }
+        .nav-brand { font-size: 1rem; font-weight: 700; color: #c0392b; }
+        .nav-page-subtitle { font-size: 0.82rem; color: #888; margin-top: 1px; }
+        .nav-hamburger { background: none; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 6px 10px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+        .nav-hamburger span { display: block; width: 20px; height: 2px; background: #555; border-radius: 2px; }
+        .nav-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 2000; }
+        .nav-overlay.open { display: block; }
+        .nav-drawer { position: fixed; top: 0; right: -280px; width: 260px; height: 100vh; background: white; z-index: 2001; box-shadow: -4px 0 20px rgba(0,0,0,0.15); transition: right 0.25s ease; display: flex; flex-direction: column; }
+        .nav-drawer.open { right: 0; }
+        .nav-drawer-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 14px; border-bottom: 1px solid #f0f0f0; }
+        .nav-drawer-title { font-size: 1.1rem; font-weight: 700; color: #b71c1c; }
+        .nav-drawer-close { background: none; border: none; font-size: 1.3rem; color: #aaa; cursor: pointer; }
+        .nav-drawer-close:hover { color: #555; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 14px 20px; text-decoration: none; color: #333; font-size: 0.95rem; border-bottom: 1px solid #f8f8f8; transition: background 0.1s; }
+        .nav-item:hover { background: #fff5f5; }
+        .nav-item.nav-current { background: #fff0f0; color: #b71c1c; font-weight: 700; border-left: 4px solid #d32f2f; }
+        .nav-item-icon { font-size: 1.1rem; width: 24px; text-align: center; flex-shrink: 0; }
+        @@media (min-width: 860px) {
+            .page-wrap { max-width: 1040px !important; }
+            #contentRow { display: flex; gap: 16px; align-items: flex-start; }
+            #calendarCol { flex: 0 0 520px; }
+            #recordCol { flex: 1; min-width: 0; }
+        }
+    </style>
+</head>
+<body>
+<div class="page-wrap">
+
+    <div class="nav-topbar">
+        <div>
+            <div class="nav-brand">けんけつノート</div>
+            <div class="nav-page-subtitle">計画管理</div>
+        </div>
+        <button class="nav-hamburger" onclick="openNav()" aria-label="メニュー"><span></span><span></span><span></span></button>
+    </div>
+
+    @if (genderRequired) {
+    <div class="gender-banner" id="genderBanner">
+        <div class="gender-banner-text"><strong>⚠ 性別が未設定です</strong><br>全血の年間上限は性別によって異なります（男性1200ml・女性800ml）。</div>
+        <button class="gender-banner-btn" onclick="openGenderModal(false)">性別を設定</button>
+    </div>
+    }
+
+    <!-- サマリーカード -->
+    <div class="summary-card" id="summaryCard">
+        <div class="summary-row">
+            <span class="summary-label">全血</span>
+            <div class="progress"><div class="progress-bar-whole" id="wholeBar" style="width:0%;"></div></div>
+            <span class="summary-val" id="wholeVal">読込中…</span>
+        </div>
+        <div class="summary-row" style="margin-bottom:12px;">
+            <span class="summary-label">成分</span>
+            <div class="progress"><div class="progress-bar-comp" id="compBar" style="width:0%;"></div></div>
+            <span class="summary-val" id="compVal">読込中…</span>
+        </div>
+        <div class="next-row">
+            <div class="next-col">
+                <div class="next-label">次回全血可能日</div>
+                <div class="next-date" id="nextWhole">-</div>
+            </div>
+            <div class="next-col">
+                <div class="next-label">次回成分可能日</div>
+                <div class="next-date" id="nextComp">-</div>
+            </div>
+        </div>
+        <div class="restriction-list" id="restrictionList" style="display:none;">
+            <div style="font-size:0.88rem; font-weight:700; color:#9b59b6; margin-bottom:6px;">
+                <i class="fa-solid fa-ban" style="margin-right:4px;"></i>手動制限
+            </div>
+            <div id="restrictionItems"></div>
+        </div>
+        <button class="add-restriction-btn" onclick="openAddRestrictionModal()">
+            <i class="fa-solid fa-plus"></i> 手動制限を追加
+        </button>
+    </div>
+
+    <div id="contentRow">
+    <div id="calendarCol">
+
+    <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#f1aab5;"></div>全血・成分不可</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#fffde0;border:1px solid #ddd;"></div>全血のみ不可</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#e8f4fd;border:1px solid #bde0f5;"></div>成分のみ不可</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f8e8ff;border:1px solid #c39bd3;"></div>手動制限</div>
+        <div style="width:100%;"></div>
+        <div class="legend-item" style="gap:6px;">
+            <span style="display:inline-flex;flex-direction:column;gap:2px;">
+                <span style="display:inline-flex;align-items:center;gap:3px;font-size:0.7rem;"><span style="width:5px;height:5px;border-radius:50%;background:#e74c3c;display:inline-block;"></span>全血</span>
+                <span style="display:inline-flex;align-items:center;gap:3px;font-size:0.7rem;"><span style="width:5px;height:5px;border-radius:50%;background:#3498db;display:inline-block;"></span>成分</span>
+            </span>
+            <span style="color:#888;font-size:0.7rem;">= インターバルによる制限</span>
+        </div>
+        <div class="legend-item" style="gap:6px;">
+            <span style="display:inline-flex;flex-direction:column;gap:2px;">
+                <span style="display:inline-flex;align-items:center;gap:3px;font-size:0.7rem;"><span style="color:#e74c3c;font-weight:900;font-size:8px;">＊</span>全血</span>
+                <span style="display:inline-flex;align-items:center;gap:3px;font-size:0.7rem;"><span style="color:#3498db;font-weight:900;font-size:8px;">＊</span>成分</span>
+            </span>
+            <span style="color:#888;font-size:0.7rem;">= 年間上限による制限</span>
+        </div>
+    </div>
+
+    <div class="month-nav">
+        <button id="btnPrev"><i class="fa-solid fa-chevron-left"></i></button>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span class="month-title" id="monthTitle"></span>
+            <button id="btnToday" style="font-size:0.75rem; padding:3px 10px; display:none;">今月</button>
+        </div>
+        <button id="btnNext"><i class="fa-solid fa-chevron-right"></i></button>
+    </div>
+
+    <div class="calendar-card">
+        <table class="cal-table">
+            <thead><tr><th>日</th><th>月</th><th>火</th><th>水</th><th>木</th><th>金</th><th>土</th></tr></thead>
+            <tbody id="calBody"><tr><td colspan="7"><div class="loading-spinner"><div class="spinner-ring"></div></div></td></tr></tbody>
+        </table>
+    </div>
+
+    </div><!-- /calendarCol -->
+    <div id="recordCol">
+
+    <div class="record-list-card">
+        <div class="record-list-title"><i class="fa-solid fa-list" style="margin-right:8px; color:#aaa;"></i>過去1年の実績・予定</div>
+        <div id="recentList"><div class="loading-spinner"><div class="spinner-ring"></div></div></div>
+    </div>
+
+    </div><!-- /recordCol -->
+    </div><!-- /contentRow -->
+
+    <div style="margin-top:8px; padding:10px 14px; background:#f8f8f8; border-radius:8px; font-size:0.75rem; color:#999; line-height:1.6;">
+        ※ 本サービスは日本赤十字社が公表している献血基準をもとに計算していますが、ラブラッドや献血ルームで案内される次回可能日・残り回数と完全一致するかの保証は致しかねます。実際の献血可否は赤十字社の提示する情報を優先してください。
+    </div>
+
+</div>
+
+<!-- ===== モーダル群 ===== -->
+<div class="modal-overlay" id="modalAddPlan">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeModal('modalAddPlan')">×</button>
+        <div class="modal-title" id="addPlanTitle"><i class="fa-solid fa-calendar-plus" style="margin-right:8px; color:#e74c3c;"></i>予定を追加</div>
+        <div style="display:flex;gap:0;margin-bottom:14px;border:1.5px solid #e0e0e0;border-radius:8px;overflow:hidden;">
+            <button id="addTypeTabPlan"   onclick="setAddType('plan')"   style="flex:1;padding:7px 0;border:none;background:#d32f2f;color:white;font-weight:700;font-size:0.9rem;cursor:pointer;">📅 予定</button>
+            <button id="addTypeTabActual" onclick="setAddType('actual')" style="flex:1;padding:7px 0;border:none;background:white;color:#888;font-size:0.9rem;cursor:pointer;">✅ 実績</button>
+        </div>
+        <div class="form-group-sm"><label class="form-label-sm">日付</label><input type="text" id="planDateDisp" class="form-ctrl" readonly><input type="hidden" id="planDateRaw"></div>
+        <div class="form-group-sm"><label class="form-label-sm">種別</label><select id="planType" class="form-ctrl"><option value="whole_400">全血 400ml</option><option value="whole_200">全血 200ml</option><option value="plasma">血漿成分</option><option value="platelet">血小板成分</option></select></div>
+        <div class="form-group-sm"><label class="form-label-sm">献血ルーム（任意）</label><button type="button" class="room-select-btn" onclick="openRoomPicker('plan')"><span class="room-name" id="planRoomName">選択なし</span><span class="room-clear" onclick="clearRoom('plan');event.stopPropagation()">✕</span></button><input type="hidden" id="planRoomId"></div>
+        <div class="form-group-sm"><label class="form-label-sm">メモ（任意）</label><input type="text" id="planNotes" class="form-ctrl" maxlength="200" placeholder="お気づきの点など"></div>
+        <div class="form-group-sm stamp-toggle-row" id="planStampRow" style="display:none;">
+            <label class="toggle-label" for="planStampCheck"><input type="checkbox" id="planStampCheck"><span class="toggle-track"><span class="toggle-thumb"></span></span>🗾 全国スタンプに反映する</label>
+        </div>
+        <div class="modal-footer-btns"><button class="btn-gray" onclick="closeModal('modalAddPlan')">キャンセル</button><button class="btn-red" id="addPlanSaveBtn" onclick="savePlan()">保存</button></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modalDetail">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeModal('modalDetail')">×</button>
+        <div class="modal-title" id="detailTitle">詳細</div>
+        <div id="detailBody"></div>
+        <div class="detail-actions" id="detailActions"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modalConvert">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeModal('modalConvert')">×</button>
+        <div class="modal-title"><i class="fa-solid fa-check-circle" style="margin-right:8px; color:#27ae60;"></i>実績に変換</div>
+        <input type="hidden" id="convertId">
+        <div class="form-group-sm"><label class="form-label-sm">種別（変更可）</label><select id="convertType" class="form-ctrl"><option value="whole_400">全血 400ml</option><option value="whole_200">全血 200ml</option><option value="plasma">血漿成分</option><option value="platelet">血小板成分</option></select></div>
+        <div class="form-group-sm"><label class="form-label-sm">献血ルーム（任意）</label><button type="button" class="room-select-btn" onclick="openRoomPicker('convert')"><span class="room-name" id="convertRoomName">選択なし</span><span class="room-clear" onclick="clearRoom('convert');event.stopPropagation()">✕</span></button><input type="hidden" id="convertRoomId"></div>
+        <div class="form-group-sm"><label class="form-label-sm">メモ（任意）</label><input type="text" id="convertNotes" class="form-ctrl" maxlength="200"></div>
+        <div class="form-group-sm stamp-toggle-row" id="convertStampRow" style="display:none;">
+            <label class="toggle-label" for="convertStampCheck"><input type="checkbox" id="convertStampCheck"><span class="toggle-track"><span class="toggle-thumb"></span></span>🗾 全国スタンプに反映する</label>
+        </div>
+        <div class="modal-footer-btns"><button class="btn-gray" onclick="closeModal('modalConvert')">キャンセル</button><button class="btn-green" onclick="doConvert()">変換する</button></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modalEdit">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeModal('modalEdit')">×</button>
+        <div class="modal-title"><i class="fa-solid fa-edit" style="margin-right:8px; color:#e67e22;"></i>編集</div>
+        <input type="hidden" id="editId">
+        <div class="form-group-sm"><label class="form-label-sm">日付</label><input type="date" id="editDate" class="form-ctrl"></div>
+        <div class="form-group-sm"><label class="form-label-sm">種別</label><select id="editType" class="form-ctrl"><option value="whole_400">全血 400ml</option><option value="whole_200">全血 200ml</option><option value="plasma">血漿成分</option><option value="platelet">血小板成分</option></select></div>
+        <div class="form-group-sm"><label class="form-label-sm">献血ルーム（任意）</label><button type="button" class="room-select-btn" onclick="openRoomPicker('edit')"><span class="room-name" id="editRoomName">選択なし</span><span class="room-clear" onclick="clearRoom('edit');event.stopPropagation()">✕</span></button><input type="hidden" id="editRoomId"></div>
+        <div class="form-group-sm"><label class="form-label-sm">メモ（任意）</label><input type="text" id="editNotes" class="form-ctrl" maxlength="200"></div>
+        <div class="modal-footer-btns"><button class="btn-gray" onclick="closeModal('modalEdit')">キャンセル</button><button class="btn-orange" onclick="saveEdit()">保存</button></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modalReschedule">
+    <div class="modal-box modal-lg">
+        <button class="modal-close" onclick="skipReschedule()">×</button>
+        <div class="modal-title"><i class="fa-solid fa-rotate" style="margin-right:8px; color:#e67e22;"></i>再スケジュール確認</div>
+        <p style="font-size:0.82rem;color:#888;margin-bottom:10px;">以下の予定が制限に引っかかります。対応を選択してください。</p>
+        <table class="rescheduled-table"><thead><tr><th>種別</th><th>変更前</th><th></th><th>変更後</th></tr></thead><tbody id="rescheduleBody"></tbody></table>
+        <div class="modal-footer-btns">
+            <button class="btn-gray" onclick="skipReschedule()">そのままにする</button>
+            <button class="btn-outline-red" onclick="confirmBulkDelete()"><i class="fa-solid fa-trash" style="margin-right:4px;"></i>全件削除</button>
+            <button class="btn-orange" onclick="applyReschedule()">ずらして適用</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modalConfirmDelete">
+    <div class="modal-box" style="max-width:320px;">
+        <div class="modal-title" style="color:#e74c3c;"><i class="fa-solid fa-triangle-exclamation" style="margin-right:8px;"></i>削除確認</div>
+        <p style="font-size:0.88rem;color:#555;">この献血記録を削除しますか？</p>
+        <div class="modal-footer-btns"><button class="btn-gray" onclick="closeModal('modalConfirmDelete')">キャンセル</button><button class="btn-red" onclick="doDelete()">削除する</button></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modalConfirmBulkDelete">
+    <div class="modal-box" style="max-width:340px;">
+        <div class="modal-title" style="color:#e74c3c;"><i class="fa-solid fa-triangle-exclamation" style="margin-right:8px;"></i>全件削除確認</div>
+        <p style="font-size:0.88rem;color:#555;" id="bulkDeleteMsg">対象の予定をすべて削除しますか？</p>
+        <div class="modal-footer-btns"><button class="btn-gray" onclick="closeModal('modalConfirmBulkDelete'); openModal('modalReschedule');">戻る</button><button class="btn-red" onclick="doBulkDelete()">削除する</button></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modalRestriction">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeModal('modalRestriction')">×</button>
+        <div class="modal-title" id="restrictionModalTitle"><i class="fa-solid fa-ban" style="margin-right:8px; color:#9b59b6;"></i>手動制限を追加</div>
+        <input type="hidden" id="restrictionId">
+        <div class="form-group-sm"><label class="form-label-sm">開始日</label><input type="date" id="restrictionStart" class="form-ctrl"></div>
+        <div class="form-group-sm"><label class="form-label-sm">日数</label><input type="number" id="restrictionDays" class="form-ctrl" min="1" max="365" value="7"></div>
+        <div class="form-group-sm"><label class="form-label-sm">理由（任意）</label><input type="text" id="restrictionReason" class="form-ctrl" maxlength="200" placeholder="手術後、体調不良など"></div>
+        <div class="form-group-sm" id="restrictionEndPreview" style="font-size:0.8rem; color:#888;"></div>
+        <div class="modal-footer-btns"><button class="btn-gray" onclick="closeModal('modalRestriction')">キャンセル</button><button class="btn-purple" onclick="saveRestriction()">保存</button></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modalConfirmDeleteRestriction">
+    <div class="modal-box" style="max-width:320px;">
+        <div class="modal-title" style="color:#9b59b6;"><i class="fa-solid fa-triangle-exclamation" style="margin-right:8px;"></i>削除確認</div>
+        <p style="font-size:0.88rem;color:#555;">この手動制限を削除しますか？</p>
+        <div class="modal-footer-btns"><button class="btn-gray" onclick="closeModal('modalConfirmDeleteRestriction')">キャンセル</button><button class="btn-red" onclick="doDeleteRestriction()">削除する</button></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modalRoomPicker" onclick="if(event.target===this)closeModal('modalRoomPicker')">
+    <div class="modal-box modal-lg">
+        <button class="modal-close" onclick="closeModal('modalRoomPicker')">×</button>
+        <div class="modal-title"><i class="fa-solid fa-location-dot" style="margin-right:8px;color:#e74c3c;"></i>献血ルームを選択</div>
+        <input type="text" class="room-picker-search" id="roomPickerSearch" placeholder="ルーム名で検索…" oninput="filterRooms()">
+        <div class="pref-filter" id="prefFilter"></div>
+        <div class="room-list" id="roomPickerList"></div>
+    </div>
+</div>
+
+
+<div class="modal-overlay" id="modalGender">
+    <div class="modal-box" style="max-width:340px;">
+        <div class="modal-title"><i class="fa-solid fa-user" style="margin-right:8px; color:#e74c3c;"></i>性別を設定</div>
+        <p style="font-size:0.83rem;color:#666;margin-bottom:4px;">全血献血の年間上限量が性別によって異なります。</p>
+        <div class="gender-choice-btns">
+            <button type="button" class="gender-choice-btn" id="gcMale"   onclick="selectGenderChoice('male')">♂ 男性<br><small style="font-weight:400;font-size:0.72rem;color:#888;">上限 1200ml</small></button>
+            <button type="button" class="gender-choice-btn" id="gcFemale" onclick="selectGenderChoice('female')">♀ 女性<br><small style="font-weight:400;font-size:0.72rem;color:#888;">上限 800ml</small></button>
+        </div>
+        <div class="modal-footer-btns" id="genderModalFooter">
+            <button class="btn-gray" id="genderCancelBtn" onclick="closeModal('modalGender')">キャンセル</button>
+            <button class="btn-red" onclick="saveGender()">保存</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modalMsg" onclick="if(event.target===this)closeModal('modalMsg')">
+    <div class="modal-box" style="max-width:340px; text-align:center;">
+        <div id="msgIcon" style="font-size:2rem;margin-bottom:8px;"></div>
+        <div id="msgText" style="font-size:0.9rem;color:#333;white-space:pre-wrap;"></div>
+        <div class="modal-footer-btns" style="justify-content:center;margin-top:14px;"><button class="btn-gray" onclick="closeModal('modalMsg')">OK</button></div>
+    </div>
+</div>
+
+<div id="donTooltip" class="don-tooltip">
+    <div class="tt-title" id="ttTitle"></div>
+    <div class="tt-row"><span class="tt-dot-red"></span><span id="ttWhole">-</span></div>
+    <div class="tt-row"><span class="tt-dot-blue"></span><span id="ttComp">-</span></div>
+    <div class="tt-actions" id="ttActions" style="display:none;">
+        <button class="tt-btn-detail" id="ttBtnDetail">詳細</button>
+        <button class="tt-btn-close" onclick="hideTooltip()">閉じる</button>
+    </div>
+</div>
+
+<script>
+const USER_ID         = '@userId';
+const GENDER_REQUIRED = @(genderRequired ? "true" : "false");
+const ROOMS           = @Html.Raw(ViewBag.RoomsJson  ?? "[]");
+const PREFS           = @Html.Raw(ViewBag.PrefsJson  ?? "[]");
+const BLOCKS          = @Html.Raw(ViewBag.BlocksJson ?? "[]");
+const PREF_MAP        = Object.fromEntries(PREFS.map(p => [p.prefId, p.prefName]));
+const ROOM_MAP        = Object.fromEntries(ROOMS.map(r => [r.roomId, r.roomName]));
+const TYPE_LABEL = { whole_200:'全血200', whole_400:'全血400', plasma:'血漿', platelet:'血小板' };
+const TYPE_LABEL_LONG = { whole_200:'全血 200ml', whole_400:'全血 400ml', plasma:'血漿成分', platelet:'血小板成分' };
+const IS_WHOLE = t => t === 'whole_200' || t === 'whole_400';
+
+let curYear  = @ViewBag.Year;
+let curMonth = @ViewBag.Month;
+const todayStr = '@ViewBag.Today';
+let monthRecords = [], intervalRanges = [], limitRanges = [], restrictionRanges = [];
+let pendingProposals = [], pendingDeleteId = null, pendingDeleteRestId = null;
+let holidays = {}, ttCache = {}, ttHideTimer = null, ttCurrentId = null, ttCurrentRec = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('monthTitle').textContent = curYear + '年' + curMonth + '月';
+    loadSummary();
+    loadHolidays().then(function() { loadMonth(curYear, curMonth); });
+    loadRecentRecords();
+    document.getElementById('btnPrev').onclick  = () => changeMonth(-1);
+    document.getElementById('btnNext').onclick  = () => changeMonth(1);
+    document.getElementById('btnToday').onclick = goToCurrentMonth;
+    document.getElementById('restrictionStart').addEventListener('input', updateRestrictionPreview);
+    document.getElementById('restrictionDays').addEventListener('input',  updateRestrictionPreview);
+});
+
+function changeMonth(d) {
+    var dt = new Date(curYear, curMonth - 1 + d, 1);
+    curYear = dt.getFullYear(); curMonth = dt.getMonth() + 1;
+    document.getElementById('monthTitle').textContent = curYear + '年' + curMonth + '月';
+    updateTodayBtn(); loadMonth(curYear, curMonth);
+}
+function goToCurrentMonth() {
+    var now = new Date();
+    curYear = now.getFullYear(); curMonth = now.getMonth() + 1;
+    document.getElementById('monthTitle').textContent = curYear + '年' + curMonth + '月';
+    updateTodayBtn(); loadMonth(curYear, curMonth);
+}
+function updateTodayBtn() {
+    var now = new Date();
+    var isCurrent = curYear === now.getFullYear() && curMonth === now.getMonth() + 1;
+    document.getElementById('btnToday').style.display = isCurrent ? 'none' : '';
+}
+
+function loadHolidays() {
+    return fetch('https://holidays-jp.github.io/api/v1/date.json')
+        .then(r => r.json()).then(d => { holidays = d; }).catch(() => { holidays = {}; });
+}
+function loadMonth(y, m) {
+    fetch('/Tracker/GetMonthData?userId=' + USER_ID + '&year=' + y + '&month=' + m)
+        .then(r => r.json()).then(data => {
+            monthRecords = data.records; intervalRanges = data.intervalRanges || [];
+            limitRanges = data.limitRanges || []; restrictionRanges = data.restrictionRanges || [];
+            renderCalendar(y, m);
+        });
+}
+function loadSummary() {
+    fetch('/Tracker/GetSummary?userId=' + USER_ID).then(r => r.json()).then(s => {
+        var wPct = Math.min(100, Math.round(s.usedVolumeMl / s.maxVolumeMl * 100));
+        var cPct = Math.min(100, Math.round(s.usedComponentCount / s.maxComponentCount * 100));
+        document.getElementById('wholeBar').style.width = wPct + '%';
+        document.getElementById('compBar').style.width  = cPct + '%';
+        document.getElementById('wholeVal').textContent = '残' + s.remainingMl + 'ml / ' + s.maxVolumeMl + 'ml';
+        document.getElementById('compVal').textContent  = '残' + s.remainingCount + '回 / ' + s.maxComponentCount + '回';
+        document.getElementById('nextWhole').innerHTML = formatNextDate(s.nextWholePossible, s.nextWholeLimitConstrained, s.nextWholeRestrictionConstrained);
+        document.getElementById('nextComp').innerHTML  = formatNextDate(s.nextComponentPossible, s.nextComponentLimitConstrained, s.nextComponentRestrictionConstrained);
+        renderRestrictionList(s.activeRestrictions);
+    });
+}
+function loadRecentRecords() {
+    fetch('/Tracker/GetRecentRecords?userId=' + USER_ID).then(r => r.json()).then(list => {
+        var el = document.getElementById('recentList');
+        if (!list.length) { el.innerHTML = '<div class="record-empty">まだ記録がありません</div>'; return; }
+        el.innerHTML = list.map(function(r) {
+            var isWhole = IS_WHOLE(r.donationType);
+            var isPlan  = r.recordType === 'plan';
+            var color   = isWhole ? '#c0392b' : '#2980b9';
+            var icon    = isPlan ? '▷' : '●';
+            return '<div class="record-list-item">' +
+                '<span class="record-list-date">' + esc(r.donationDate) + '</span>' +
+                '<span class="record-list-type" style="color:' + color + ';">' + icon + ' ' + esc(TYPE_LABEL_LONG[r.donationType]) + (isPlan ? '（予定）' : '') + '</span>' +
+                '<span class="record-list-notes">' + esc(r.notes || '') + '</span>' +
+                '</div>';
+        }).join('');
+    });
+}
+function renderRestrictionList(restrictions) {
+    var listEl = document.getElementById('restrictionList');
+    var itemsEl = document.getElementById('restrictionItems');
+    if (!restrictions || restrictions.length === 0) { listEl.style.display = 'none'; return; }
+    listEl.style.display = '';
+    itemsEl.innerHTML = restrictions.map(function(r) {
+        return '<div class="restriction-item">' +
+            '<span class="restriction-dot"></span>' +
+            '<span>' + esc(r.start) + '〜' + esc(r.end) + (r.reason ? '：' + esc(r.reason) : '') + '</span>' +
+            '<button class="restriction-edit" onclick="openEditRestrictionModal(' + r.id + ',\'' + esc(r.start) + '\',\'' + esc(r.end) + '\',\'' + esc(r.reason || '') + '\')"><i class="fa-solid fa-pen"></i></button>' +
+            '<button class="restriction-del" onclick="confirmDeleteRestriction(' + r.id + ')"><i class="fa-solid fa-xmark"></i></button>' +
+            '</div>';
+    }).join('');
+}
+function renderCalendar(y, m) {
+    var tbody = document.getElementById('calBody');
+    tbody.innerHTML = '';
+    var first = new Date(y, m - 1, 1), last = new Date(y, m, 0);
+    var cells = [];
+    var startDow = first.getDay();
+    for (var i = 0; i < startDow; i++) { var d = new Date(first); d.setDate(d.getDate() - (startDow - i)); cells.push({ date: fmtDate(d), other: true }); }
+    for (var d2 = 1; d2 <= last.getDate(); d2++) cells.push({ date: y + '-' + pad(m) + '-' + pad(d2), other: false });
+    var rem = Math.ceil(cells.length / 7) * 7 - cells.length;
+    var nd = new Date(y, m, 1);
+    for (var i2 = 0; i2 < rem; i2++) { cells.push({ date: fmtDate(nd), other: true }); nd.setDate(nd.getDate() + 1); }
+    var DOW_CLASS = ['col-sun','','','','','','col-sat'];
+    for (var row = 0; row < cells.length / 7; row++) {
+        var tr = document.createElement('tr');
+        for (var col = 0; col < 7; col++) {
+            var cell = cells[row * 7 + col];
+            var recs = monthRecords.filter(r => r.donationDate === cell.date);
+            var isToday = cell.date === todayStr, dayNum = parseInt(cell.date.split('-')[2]);
+            var holidayName = !cell.other ? (holidays[cell.date] || null) : null;
+            var intervalKind = !cell.other ? dateRangeKind(cell.date, intervalRanges) : null;
+            var limitKind    = !cell.other ? dateRangeKind(cell.date, limitRanges)    : null;
+            var isRestricted = !cell.other && dateInRanges(cell.date, restrictionRanges);
+            var wholeByInterval = intervalKind === 'interval_both' || intervalKind === 'interval_whole';
+            var wholeByLimit    = limitKind === 'limit_both' || limitKind === 'limit_whole';
+            var compByInterval  = intervalKind === 'interval_both';
+            var compByLimit     = limitKind === 'limit_both' || limitKind === 'limit_comp';
+            var wholeBlocked = isRestricted || wholeByInterval || wholeByLimit;
+            var compBlocked  = isRestricted || compByInterval  || compByLimit;
+            var bgClass = '';
+            if (!cell.other) {
+                if (isRestricted) bgClass = ' restriction-day';
+                else if (wholeBlocked && compBlocked) bgClass = ' blocked-both-day';
+                else if (wholeBlocked) bgClass = ' blocked-whole-day';
+                else if (compBlocked)  bgClass = ' blocked-comp-day';
+            }
+            var td = document.createElement('td');
+            td.className = 'cal-cell' + (cell.other ? ' other-month' : '') + (isToday ? ' today' : '') + bgClass + (holidayName ? ' col-holiday' : '') + ' ' + DOW_CLASS[col];
+            if (!cell.other && (wholeBlocked || compBlocked || isRestricted)) {
+                var indWrap = document.createElement('div');
+                indWrap.className = 'cell-indicators';
+                if (isRestricted) {
+                    var dRest = document.createElement('span'); dRest.className = 'ind-dot ind-restriction'; dRest.title = '手動制限'; indWrap.appendChild(dRest);
+                } else {
+                    if (wholeByInterval) { var dWI = document.createElement('span'); dWI.className = 'ind-dot ind-whole-interval'; indWrap.appendChild(dWI); }
+                    else if (wholeByLimit) { var dWL = document.createElement('span'); dWL.className = 'ind-star ind-whole-limit'; dWL.textContent = '＊'; indWrap.appendChild(dWL); }
+                    if (compByInterval) { var dCI = document.createElement('span'); dCI.className = 'ind-dot ind-comp-interval'; indWrap.appendChild(dCI); }
+                    else if (compByLimit) { var dCL = document.createElement('span'); dCL.className = 'ind-star ind-comp-limit'; dCL.textContent = '＊'; indWrap.appendChild(dCL); }
+                }
+                td.appendChild(indWrap);
+            }
+            var dn = document.createElement('div'); dn.className = 'day-num'; dn.textContent = dayNum; td.appendChild(dn);
+            if (holidayName) { var hn = document.createElement('div'); hn.className = 'holiday-name'; hn.textContent = holidayName; td.appendChild(hn); }
+            recs.forEach(function(r) {
+                var isWhole = IS_WHOLE(r.donationType);
+                var badge = document.createElement('span');
+                badge.className = 'don-badge ' + (isWhole ? 'badge-whole' : 'badge-comp') + ' ' + (r.recordType === 'plan' ? 'badge-plan' : 'badge-actual');
+                badge.textContent = (r.recordType === 'plan' ? '▷ ' : '● ') + TYPE_LABEL[r.donationType];
+                (function(rec) {
+                    if (isTouchDevice()) { badge.addEventListener('touchend', function(e) { e.preventDefault(); e.stopPropagation(); showTooltipTouch(e, rec); }); }
+                    else { badge.onclick = function(e) { e.stopPropagation(); openDetail(rec); }; badge.addEventListener('mouseenter', function(e) { showTooltip(e, rec); }); badge.addEventListener('mousemove', moveTooltip); badge.addEventListener('mouseleave', hideTooltip); }
+                })(r);
+                td.appendChild(badge);
+            });
+            if (!cell.other) { (function(dateStr, hasRecs) { if (!hasRecs) td.onclick = function() { openAddPlanModal(dateStr); }; })(cell.date, recs.length > 0); }
+            tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+    }
+}
+function dateInRanges(ds, ranges) { return ranges.some(r => ds >= r.start && ds <= r.end); }
+function dateRangeKind(ds, ranges) { var h = ranges.find(r => ds >= r.start && ds <= r.end); return h ? h.kind : null; }
+function openModal(id)  { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function showMsg(text, icon) { document.getElementById('msgText').textContent = text; document.getElementById('msgIcon').textContent = icon || 'ℹ️'; openModal('modalMsg'); }
+
+// ── ルームピッカー ──────────────────────────────────────────
+let _roomPickerTarget = null;  // 'plan' | 'convert' | 'edit'
+let _roomPickerPref   = null;
+let _stampPendingRecordId = null;
+
+function openRoomPicker(target) {
+    _roomPickerTarget = target;
+    _roomPickerPref   = null;
+    document.getElementById('roomPickerSearch').value = '';
+    buildPrefFilter();
+    filterRooms();
+    openModal('modalRoomPicker');
+    setTimeout(() => document.getElementById('roomPickerSearch').focus(), 80);
+}
+function buildPrefFilter() {
+    var el = document.getElementById('prefFilter');
+    el.innerHTML = '';
+    var allBtn = document.createElement('button');
+    allBtn.className = 'pref-filter-btn active';
+    allBtn.textContent = 'すべて';
+    allBtn.onclick = () => setPrefFilter(null, allBtn);
+    el.appendChild(allBtn);
+    BLOCKS.forEach(function(b) {
+        var prefInBlock = PREFS.filter(p => p.centerBlockId === b.centerBlockId);
+        prefInBlock.forEach(function(p) {
+            var btn = document.createElement('button');
+            btn.className = 'pref-filter-btn';
+            btn.textContent = p.prefName;
+            btn.onclick = () => setPrefFilter(p.prefId, btn);
+            el.appendChild(btn);
+        });
+    });
+}
+function setPrefFilter(prefId, btn) {
+    _roomPickerPref = prefId;
+    document.querySelectorAll('.pref-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filterRooms();
+}
+function filterRooms() {
+    var q    = document.getElementById('roomPickerSearch').value.trim().toLowerCase();
+    var list = document.getElementById('roomPickerList');
+    var filtered = ROOMS.filter(function(r) {
+        if (_roomPickerPref && r.prefId !== _roomPickerPref) return false;
+        if (q && r.roomName.toLowerCase().indexOf(q) === -1) return false;
+        return true;
+    });
+    list.innerHTML = '';
+    // 選択なし
+    var noneItem = document.createElement('div');
+    noneItem.className = 'room-list-item none-item';
+    noneItem.textContent = '選択なし';
+    noneItem.onclick = () => selectRoom(null, null);
+    list.appendChild(noneItem);
+    if (filtered.length === 0) {
+        var empty = document.createElement('div');
+        empty.className = 'room-list-empty';
+        empty.textContent = '該当するルームがありません';
+        list.appendChild(empty);
+        return;
+    }
+    filtered.forEach(function(r) {
+        var item = document.createElement('div');
+        item.className = 'room-list-item';
+        var nameSpan = document.createElement('span');
+        nameSpan.style.flex = '1';
+        nameSpan.textContent = r.roomName;
+        var prefSpan = document.createElement('span');
+        prefSpan.className = 'room-pref-tag';
+        prefSpan.textContent = PREF_MAP[r.prefId] || '';
+        item.appendChild(nameSpan);
+        item.appendChild(prefSpan);
+        if (r.isClosed) {
+            var cl = document.createElement('span');
+            cl.className = 'closed-tag';
+            cl.textContent = '閉鎖';
+            item.appendChild(cl);
+        }
+        item.onclick = () => selectRoom(r.roomId, r.roomName);
+        list.appendChild(item);
+    });
+}
+function selectRoom(id, name) {
+    closeModal('modalRoomPicker');
+    var t = _roomPickerTarget;
+    document.getElementById(t + 'RoomId').value  = id   || '';
+    document.getElementById(t + 'RoomName').textContent = name || '選択なし';
+    updateStampToggle(t);
+}
+function clearRoom(target) {
+    document.getElementById(target + 'RoomId').value  = '';
+    document.getElementById(target + 'RoomName').textContent = '選択なし';
+    updateStampToggle(target);
+}
+function updateStampToggle(target) {
+    if (target === 'plan') {
+        var show = _addRecordType === 'actual' && !!document.getElementById('planRoomId').value;
+        var row = document.getElementById('planStampRow');
+        row.style.display = show ? '' : 'none';
+        if (!show) document.getElementById('planStampCheck').checked = false;
+    } else if (target === 'convert') {
+        var show2 = !!document.getElementById('convertRoomId').value;
+        var row2 = document.getElementById('convertStampRow');
+        row2.style.display = show2 ? '' : 'none';
+        if (!show2) document.getElementById('convertStampCheck').checked = false;
+    }
+}
+
+// ── スタンプ反映 ─────────────────────────────────────────────
+function showStampConfirm(recordId, roomName) {
+    _stampPendingRecordId = recordId;
+    document.getElementById('stampConfirmRoom').textContent = roomName;
+    openModal('modalStampConfirm');
+}
+function doApplyStamp() {
+    if (!_stampPendingRecordId) return;
+    postForm('/Tracker/ApplyStamp', { userId: USER_ID, recordId: _stampPendingRecordId }, function(d) {
+        closeModal('modalStampConfirm');
+        if (!d.success) { showMsg(d.message, '❌'); return; }
+        showMsg(d.updated ? 'スタンプの訪問日を更新しました！' : '全国スタンプに反映しました！', '🗾');
+    });
+}
+
+let _selectedGender = null;
+let _pendingGenderRequired = false;
+function openGenderModal(required) {
+    _pendingGenderRequired = required;
+    _selectedGender = null;
+    document.getElementById('gcMale').classList.remove('selected');
+    document.getElementById('gcFemale').classList.remove('selected');
+    var cancelBtn = document.getElementById('genderCancelBtn');
+    if (required) cancelBtn.style.display = 'none'; else cancelBtn.style.display = '';
+    openModal('modalGender');
+}
+function selectGenderChoice(g) {
+    _selectedGender = g;
+    document.getElementById('gcMale').classList.toggle('selected',   g === 'male');
+    document.getElementById('gcFemale').classList.toggle('selected', g === 'female');
+}
+function saveGender() {
+    if (!_selectedGender) { showMsg('性別を選択してください。', '⚠️'); return; }
+    postForm('/Tracker/SetGender', { userId: USER_ID, gender: _selectedGender }, function(d) {
+        if (!d.success) { showMsg(d.message, '❌'); return; }
+        closeModal('modalGender');
+        location.reload();
+    });
+}
+var _addRecordType = 'plan';
+function setAddType(t) {
+    _addRecordType = t;
+    var isPlan = t === 'plan';
+    document.getElementById('addTypeTabPlan').style.background   = isPlan ? '#d32f2f' : 'white';
+    document.getElementById('addTypeTabPlan').style.color        = isPlan ? 'white'   : '#888';
+    document.getElementById('addTypeTabActual').style.background = isPlan ? 'white'   : '#27ae60';
+    document.getElementById('addTypeTabActual').style.color      = isPlan ? '#888'    : 'white';
+    document.getElementById('addTypeTabPlan').style.fontWeight   = isPlan ? '700'     : 'normal';
+    document.getElementById('addTypeTabActual').style.fontWeight = isPlan ? 'normal'  : '700';
+    document.getElementById('addPlanTitle').innerHTML = isPlan
+        ? '<i class="fa-solid fa-calendar-plus" style="margin-right:8px;color:#e74c3c;"></i>予定を追加'
+        : '<i class="fa-solid fa-check-circle" style="margin-right:8px;color:#27ae60;"></i>実績を追加';
+    document.getElementById('addPlanSaveBtn').className = isPlan ? 'btn-red' : 'btn-green';
+    updateStampToggle('plan');
+}
+function openAddPlanModal(dateStr) {
+    var p = dateStr.split('-');
+    document.getElementById('planDateDisp').value = p[0] + '年' + parseInt(p[1]) + '月' + parseInt(p[2]) + '日';
+    document.getElementById('planDateRaw').value = dateStr;
+    document.getElementById('planType').value = 'whole_400';
+    document.getElementById('planNotes').value = '';
+    clearRoom('plan');
+    setAddType('plan');
+    openModal('modalAddPlan');
+}
+function savePlan() {
+    var applyStamp = _addRecordType === 'actual' && document.getElementById('planStampCheck').checked;
+    postForm('/Tracker/AddPlan', { userId: USER_ID, donationDate: document.getElementById('planDateRaw').value, donationType: document.getElementById('planType').value, notes: document.getElementById('planNotes').value, roomId: document.getElementById('planRoomId').value || '', recordType: _addRecordType }, function(d) {
+        if (!d.success) { showMsg(d.message, '❌'); return; }
+        closeModal('modalAddPlan');
+        if (applyStamp && d.recordId) {
+            postForm('/Tracker/ApplyStamp', { userId: USER_ID, recordId: d.recordId }, function(ds) {
+                if (ds.success) showMsg(ds.updated ? 'スタンプの訪問日を更新しました！' : '全国スタンプに反映しました！', '🗾');
+                reload();
+            });
+        } else { reload(); }
+    });
+}
+function openDetail(r) {
+    var isWhole = IS_WHOLE(r.donationType), isPlan = r.recordType === 'plan';
+    document.getElementById('detailTitle').innerHTML = (isPlan ? '予定詳細' : '実績詳細');
+    document.getElementById('detailBody').innerHTML = detailRow('日付', r.donationDate.replace(/-/g, '/')) + detailRow('種別', TYPE_LABEL_LONG[r.donationType]) + detailRow('区分', isPlan ? '📅 予定' : '✅ 実績') + detailRow('メモ', r.notes || '-');
+    var actions = document.getElementById('detailActions');
+    actions.innerHTML = '';
+    if (isPlan) { var btnConv = document.createElement('button'); btnConv.className = 'btn-green'; btnConv.textContent = '実績に変換'; btnConv.onclick = function() { closeModal('modalDetail'); openConvertModal(r); }; actions.appendChild(btnConv); }
+    var btnEdit = document.createElement('button'); btnEdit.className = 'btn-orange'; btnEdit.textContent = '編集'; btnEdit.onclick = function() { closeModal('modalDetail'); openEditModal(r); }; actions.appendChild(btnEdit);
+    var btnDel = document.createElement('button'); btnDel.className = 'btn-outline-red'; btnDel.textContent = '削除'; btnDel.onclick = function() { closeModal('modalDetail'); pendingDeleteId = r.id; openModal('modalConfirmDelete'); }; actions.appendChild(btnDel);
+    openModal('modalDetail');
+}
+function detailRow(key, val) { return '<div class="detail-row"><span class="detail-key">' + esc(key) + '</span><span class="detail-val">' + esc(val) + '</span></div>'; }
+function openConvertModal(r) {
+    document.getElementById('convertId').value    = r.id;
+    document.getElementById('convertType').value  = r.donationType;
+    document.getElementById('convertNotes').value = r.notes || '';
+    var rid = r.roomId || null;
+    document.getElementById('convertRoomId').value = rid || '';
+    document.getElementById('convertRoomName').textContent = (rid && ROOM_MAP[rid]) ? ROOM_MAP[rid] : '選択なし';
+    updateStampToggle('convert');
+    openModal('modalConvert');
+}
+function doConvert() {
+    var id = parseInt(document.getElementById('convertId').value);
+    var applyStamp = document.getElementById('convertStampCheck').checked;
+    postForm('/Tracker/ConvertToActual', { userId: USER_ID, id, donationType: document.getElementById('convertType').value, notes: document.getElementById('convertNotes').value, roomId: document.getElementById('convertRoomId').value || '' }, function(d) {
+        if (!d.success) { showMsg(d.message, '❌'); return; }
+        delete ttCache[id]; closeModal('modalConvert');
+        var afterReload = function() {
+            if (applyStamp && d.recordId) {
+                postForm('/Tracker/ApplyStamp', { userId: USER_ID, recordId: d.recordId }, function(ds) {
+                    if (ds.success) showMsg(ds.updated ? 'スタンプの訪問日を更新しました！' : '全国スタンプに反映しました！', '🗾');
+                });
+            }
+        };
+        if (d.proposals && d.proposals.length > 0) { showRescheduleModal(d.proposals); afterReload(); }
+        else { reload(); afterReload(); }
+    });
+}
+function openEditModal(r) {
+    document.getElementById('editId').value    = r.id;
+    document.getElementById('editDate').value  = r.donationDate;
+    document.getElementById('editType').value  = r.donationType;
+    document.getElementById('editNotes').value = r.notes || '';
+    var rid = r.roomId || null;
+    document.getElementById('editRoomId').value = rid || '';
+    document.getElementById('editRoomName').textContent = (rid && ROOM_MAP[rid]) ? ROOM_MAP[rid] : '選択なし';
+    openModal('modalEdit');
+}
+function saveEdit() {
+    var id = parseInt(document.getElementById('editId').value);
+    postForm('/Tracker/UpdateRecord', { userId: USER_ID, id, donationDate: document.getElementById('editDate').value, donationType: document.getElementById('editType').value, notes: document.getElementById('editNotes').value, roomId: document.getElementById('editRoomId').value || '' }, function(d) {
+        if (!d.success) { showMsg(d.message, '❌'); return; }
+        delete ttCache[id]; closeModal('modalEdit');
+        if (d.proposals && d.proposals.length > 0) showRescheduleModal(d.proposals); else reload();
+    });
+}
+function doDelete() {
+    postForm('/Tracker/DeleteRecord', { userId: USER_ID, id: pendingDeleteId }, function(d) {
+        closeModal('modalConfirmDelete');
+        if (!d.success) { showMsg(d.message, '❌'); return; }
+        delete ttCache[pendingDeleteId]; reload();
+    });
+}
+function showRescheduleModal(proposals) {
+    pendingProposals = proposals;
+    var tbody = document.getElementById('rescheduleBody');
+    tbody.innerHTML = '';
+    proposals.forEach(function(p) {
+        var badgeCls = IS_WHOLE(p.donationType) ? 'badge-whole' : 'badge-comp';
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td><span class="don-badge ' + badgeCls + '" style="display:inline-block;width:auto;padding:2px 7px;">' + TYPE_LABEL[p.donationType] + '</span></td>' +
+            '<td style="color:#aaa;text-decoration:line-through;">' + p.originalDate + '</td>' +
+            '<td>→</td><td style="font-weight:700;color:#333;">' + p.newDate + '</td>';
+        tbody.appendChild(tr);
+    });
+    openModal('modalReschedule');
+}
+function applyReschedule() {
+    var items = pendingProposals.map(p => ({ recordId: p.recordId, newDate: p.newDate }));
+    postForm('/Tracker/ApplyReschedule', { userId: USER_ID, proposals: JSON.stringify(items) }, function(d) {
+        pendingProposals.forEach(p => delete ttCache[p.recordId]); pendingProposals = [];
+        closeModal('modalReschedule');
+        if (!d.success) { showMsg(d.message, '❌'); return; }
+        reload();
+    });
+}
+function skipReschedule() { pendingProposals = []; closeModal('modalReschedule'); reload(); }
+function confirmBulkDelete() { document.getElementById('bulkDeleteMsg').textContent = '以下 ' + pendingProposals.length + ' 件の予定をすべて削除します。'; closeModal('modalReschedule'); openModal('modalConfirmBulkDelete'); }
+function doBulkDelete() {
+    var ids = pendingProposals.map(p => p.recordId);
+    postForm('/Tracker/BulkDeleteRecords', { userId: USER_ID, ids: JSON.stringify(ids) }, function(d) {
+        ids.forEach(id => delete ttCache[id]); pendingProposals = [];
+        closeModal('modalConfirmBulkDelete');
+        if (!d.success) { showMsg(d.message, '❌'); return; }
+        reload();
+    });
+}
+function openAddRestrictionModal() {
+    document.getElementById('restrictionModalTitle').innerHTML = '<i class="fa-solid fa-ban" style="margin-right:8px; color:#9b59b6;"></i>手動制限を追加';
+    document.getElementById('restrictionId').value = ''; document.getElementById('restrictionStart').value = todayStr;
+    document.getElementById('restrictionDays').value = '7'; document.getElementById('restrictionReason').value = '';
+    updateRestrictionPreview(); openModal('modalRestriction');
+}
+function openEditRestrictionModal(id, start, end, reason) {
+    document.getElementById('restrictionModalTitle').innerHTML = '<i class="fa-solid fa-ban" style="margin-right:8px; color:#9b59b6;"></i>手動制限を編集';
+    document.getElementById('restrictionId').value = id; document.getElementById('restrictionStart').value = start.replace(/\//g, '-');
+    var s = new Date(start.replace(/\//g, '-')), e = new Date(end.replace(/\//g, '-'));
+    document.getElementById('restrictionDays').value = Math.round((e - s) / 86400000) + 1;
+    document.getElementById('restrictionReason').value = reason;
+    updateRestrictionPreview(); openModal('modalRestriction');
+}
+function updateRestrictionPreview() {
+    var start = document.getElementById('restrictionStart').value, days = parseInt(document.getElementById('restrictionDays').value);
+    var prev = document.getElementById('restrictionEndPreview');
+    if (start && days >= 1) { var end = new Date(start); end.setDate(end.getDate() + days - 1); prev.textContent = '制限期間: ' + start.replace(/-/g, '/') + ' 〜 ' + fmtDate(end).replace(/-/g, '/') + '（' + days + '日間）'; }
+    else prev.textContent = '';
+}
+function saveRestriction() {
+    var id = document.getElementById('restrictionId').value;
+    var params = { userId: USER_ID, startDate: document.getElementById('restrictionStart').value, durationDays: document.getElementById('restrictionDays').value, reason: document.getElementById('restrictionReason').value };
+    if (id) params.id = id;
+    postForm(id ? '/Tracker/UpdateRestriction' : '/Tracker/AddRestriction', params, function(d) {
+        if (!d.success) { showMsg(d.message, '❌'); return; }
+        closeModal('modalRestriction'); ttCache = {};
+        if (d.proposals && d.proposals.length > 0) showRescheduleModal(d.proposals); else reload();
+    });
+}
+function confirmDeleteRestriction(id) { pendingDeleteRestId = id; openModal('modalConfirmDeleteRestriction'); }
+function doDeleteRestriction() {
+    postForm('/Tracker/DeleteRestriction', { userId: USER_ID, id: pendingDeleteRestId }, function(d) {
+        closeModal('modalConfirmDeleteRestriction');
+        if (!d.success) { showMsg(d.message, '❌'); return; }
+        ttCache = {}; reload();
+    });
+}
+function isTouchDevice() { return 'ontouchstart' in window || navigator.maxTouchPoints > 0; }
+function setTooltipContent(rec) {
+    document.getElementById('ttTitle').textContent = TYPE_LABEL_LONG[rec.donationType] + (rec.recordType === 'plan' ? '（予定）' : '（実績）') + ' の後';
+    document.getElementById('ttWhole').innerHTML = '<span class="tt-loading">読込中…</span>';
+    document.getElementById('ttComp').innerHTML  = '<span class="tt-loading">読込中…</span>';
+}
+function fetchAndRender(rec) {
+    if (ttCache[rec.id]) { renderTooltip(ttCache[rec.id]); return; }
+    fetch('/Tracker/GetNextPossible?userId=' + USER_ID + '&id=' + rec.id)
+        .then(r => r.json()).then(function(d) { if (!d.success) return; ttCache[rec.id] = d; if (ttCurrentId === rec.id) renderTooltip(d); });
+}
+function showTooltip(e, rec) {
+    clearTimeout(ttHideTimer); ttCurrentId = rec.id; setTooltipContent(rec);
+    var tt = document.getElementById('donTooltip'); tt.classList.remove('touch-mode'); document.getElementById('ttActions').style.display = 'none';
+    moveTooltip(e); tt.classList.add('show'); fetchAndRender(rec);
+}
+function showTooltipTouch(e, rec) {
+    if (ttCurrentId === rec.id && document.getElementById('donTooltip').classList.contains('show')) { hideTooltip(); return; }
+    clearTimeout(ttHideTimer); ttCurrentId = rec.id; ttCurrentRec = rec; setTooltipContent(rec);
+    var tt = document.getElementById('donTooltip'); tt.classList.add('touch-mode');
+    document.getElementById('ttBtnDetail').onclick = function() { hideTooltip(); openDetail(rec); };
+    document.getElementById('ttActions').style.display = 'flex';
+    var vw = window.innerWidth, ttW = Math.min(260, vw - 24);
+    tt.style.width = ttW + 'px'; tt.style.left = Math.round((vw - ttW) / 2) + 'px'; tt.style.top = Math.round(window.innerHeight * 0.55) + 'px';
+    tt.classList.add('show'); fetchAndRender(rec);
+    setTimeout(function() { document.addEventListener('touchend', closeTouchTooltip, { once: true }); }, 50);
+}
+function closeTouchTooltip(e) { if (!document.getElementById('donTooltip').contains(e.target)) hideTooltip(); }
+function renderTooltip(d) {
+    document.getElementById('ttWhole').innerHTML = '全血：' + formatNextDate(d.nextWhole, d.nextWholeLimitConstrained, d.nextWholeRestConstrained);
+    document.getElementById('ttComp').innerHTML  = '成分：' + formatNextDate(d.nextComponent, d.nextCompLimitConstrained, d.nextCompRestConstrained);
+}
+function moveTooltip(e) {
+    var tt = document.getElementById('donTooltip'), gap = 14;
+    var x = e.clientX + gap, y = e.clientY + gap;
+    if (x + 250 > window.innerWidth)  x = e.clientX - 250 - gap;
+    if (y + 90  > window.innerHeight) y = e.clientY - 90  - gap;
+    tt.style.left = x + 'px'; tt.style.top = y + 'px';
+}
+function hideTooltip() {
+    ttCurrentId = null; ttCurrentRec = null;
+    ttHideTimer = setTimeout(function() { var tt = document.getElementById('donTooltip'); tt.classList.remove('show'); tt.classList.remove('touch-mode'); tt.style.width = ''; }, 80);
+}
+function formatNextDate(dateStr, limitConstrained, restrictionConstrained) {
+    var text = dateStr || '今すぐ可能', html = esc(text);
+    if (restrictionConstrained && dateStr) html += '<span class="restriction-badge">⚠ 手動制限</span>';
+    else if (limitConstrained && dateStr) html += '<span class="limit-badge">⚠ 年間上限</span>';
+    return html;
+}
+function reload() { loadMonth(curYear, curMonth); loadSummary(); loadRecentRecords(); }
+function postForm(url, params, cb) {
+    var body = Object.keys(params).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k] ?? '')).join('&');
+    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body })
+        .then(r => r.json()).then(function(d) {
+            if (d.requiresGender) { openGenderModal(true); return; }
+            cb(d);
+        }).catch(function(e) { showMsg('通信エラー: ' + e.message, '❌'); });
+}
+function fmtDate(d) { return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+function pad(n)    { return String(n).padStart(2, '0'); }
+function esc(s)    { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function openNav()  { document.getElementById('navDrawer').classList.add('open'); document.getElementById('navOverlay').classList.add('open'); }
+function closeNav() { document.getElementById('navDrawer').classList.remove('open'); document.getElementById('navOverlay').classList.remove('open'); }
+</script>
+
+<div class="nav-overlay" id="navOverlay" onclick="closeNav()"></div>
+<nav class="nav-drawer" id="navDrawer">
+    <div class="nav-drawer-header">
+        <div class="nav-drawer-title">けんけつノート</div>
+        <button class="nav-drawer-close" onclick="closeNav()">×</button>
+    </div>
+    <a href="/u/@userId" class="nav-item"><span class="nav-item-icon">🏠</span>マイページ</a>
+    <a href="/u/@userId/stamp" class="nav-item"><span class="nav-item-icon">🗾</span>全国スタンプ</a>
+    <a href="/u/@userId/tracker" class="nav-item nav-current"><span class="nav-item-icon">📅</span>計画管理</a>
+    <a href="/u/@userId/manual" class="nav-item"><span class="nav-item-icon">📖</span>ヘルプ</a>
+</nav>
+</body>
+</html>

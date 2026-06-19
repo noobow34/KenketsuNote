@@ -1,0 +1,175 @@
+@{
+    Layout = null;
+    var userId   = ViewBag.UserId as string ?? "";
+    var userName = ViewBag.UserName as string;
+}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>けんけつノート</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+            background: #fafafa;
+            color: #333;
+        }
+        .hub-wrap {
+            max-width: 520px;
+            margin: 60px auto;
+            padding: 0 16px;
+            text-align: center;
+        }
+        .hub-title {
+            color: #b71c1c;
+            font-size: 1.8em;
+            margin-bottom: 4px;
+        }
+        .hub-username {
+            color: #555;
+            margin: 0 0 32px;
+        }
+        .hub-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .hub-card {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background: #fff;
+            border-radius: 16px;
+            padding: 24px 28px;
+            text-decoration: none;
+            color: #333;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            transition: box-shadow 0.2s, transform 0.15s;
+            border-left: 6px solid #d32f2f;
+        }
+        .hub-card:hover {
+            box-shadow: 0 6px 20px rgba(211,47,47,0.15);
+            transform: translateY(-2px);
+        }
+        .hub-card-icon {
+            font-size: 2.2em;
+            flex-shrink: 0;
+        }
+        .hub-card-text {
+            text-align: left;
+        }
+        .hub-card-name {
+            font-size: 1.15em;
+            font-weight: bold;
+            color: #b71c1c;
+            margin-bottom: 4px;
+        }
+        .hub-card-desc {
+            font-size: 0.88em;
+            color: #666;
+        }
+        .hub-notice {
+            margin-top: 28px;
+            background: #fff8e1;
+            border: 1.5px solid #ffe082;
+            border-radius: 12px;
+            padding: 14px 18px;
+            font-size: 0.82em;
+            color: #5d4037;
+            line-height: 1.7;
+        }
+        .hub-notice strong {
+            display: block;
+            font-size: 0.95em;
+            margin-bottom: 4px;
+            color: #b71c1c;
+        }
+        .hub-url {
+            display: inline-block;
+            font-family: monospace;
+            font-size: 0.95em;
+            background: #fff;
+            border: 1px solid #f5c518;
+            border-radius: 6px;
+            padding: 4px 10px;
+            margin: 6px 0;
+            word-break: break-all;
+            color: #333;
+            cursor: pointer;
+            user-select: all;
+        }
+        .hub-url:hover { background: #fffde7; }
+        .hub-disclaimer {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #ffe082;
+            font-size: 0.9em;
+            color: #8d6e63;
+        }
+        .hub-footer {
+            margin-top: 32px;
+            font-size: 0.8em;
+            color: #aaa;
+        }
+        .hub-footer a {
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+<div class="hub-wrap">
+    <h1 class="hub-title">けんけつノート</h1>
+    @if (!string.IsNullOrEmpty(userName))
+    {
+        <p class="hub-username">@userName さん</p>
+    }
+    else
+    {
+        <p class="hub-username">マイページ</p>
+    }
+    <div class="hub-menu">
+        <a href="/u/@userId/stamp" class="hub-card">
+            <div class="hub-card-icon">🗾</div>
+            <div class="hub-card-text">
+                <div class="hub-card-name">全国スタンプ</div>
+                <div class="hub-card-desc">全国の献血ルームをスタンプ帳で記録</div>
+            </div>
+        </a>
+        <a href="/u/@userId/tracker" class="hub-card">
+            <div class="hub-card-icon">📅</div>
+            <div class="hub-card-text">
+                <div class="hub-card-name">計画管理</div>
+                <div class="hub-card-desc">献血の予定・実績・制限期間を管理</div>
+            </div>
+        </a>
+        <a href="/u/@userId/manual" class="hub-card">
+            <div class="hub-card-icon">📖</div>
+            <div class="hub-card-text">
+                <div class="hub-card-name">ヘルプ</div>
+                <div class="hub-card-desc">使い方・ルール・よくある操作</div>
+            </div>
+        </a>
+    </div>
+    <div class="hub-notice">
+        <strong>🔖 このページをブックマークしてご利用ください</strong>
+        このURLがあなた専用のマイページです。次回以降はこのURLから直接アクセスしてください。
+        <div>
+            <span class="hub-url" title="クリックで全選択" id="myUrl"></span>
+        </div>
+        <div class="hub-disclaimer">
+            ⚠ このURLを知っている人はだれでもページにアクセス・編集できます。URLの取り扱いにご注意ください。なお、記録の流出・消失について当方では責任を負いかねます。
+        </div>
+    </div>
+
+    <div class="hub-footer">
+        <a href="/">けんけつノート トップ</a>
+    </div>
+
+    <script>
+        document.getElementById('myUrl').textContent = window.location.href;
+    </script>
+</div>
+</body>
+</html>

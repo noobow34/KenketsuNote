@@ -1,0 +1,391 @@
+@{
+    Layout = null;
+    var userId = ViewBag.UserId as string ?? "";
+}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ヘルプ | けんけつノート</title>
+<link rel="icon" href="/favicon.ico"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;font-size:15px;line-height:1.7;color:#333;background:#fff;}
+
+/* ── topbar ── */
+.topbar{position:sticky;top:0;z-index:100;background:#b71c1c;color:white;display:flex;align-items:center;padding:0 16px;height:52px;gap:10px;}
+.topbar-back{background:none;border:none;color:white;font-size:1.3rem;cursor:pointer;padding:4px 8px;margin-right:2px;border-radius:4px;}
+.topbar-back:hover{background:rgba(255,255,255,0.15);}
+.topbar-title{font-size:1rem;font-weight:700;color:white;}
+.topbar-sub{font-size:0.8rem;color:rgba(255,255,255,0.75);margin-top:1px;}
+
+/* ── layout ── */
+.manual-wrap{max-width:720px;margin:0 auto;padding:28px 18px 80px;}
+
+/* ── sections ── */
+h2{font-size:1.2rem;font-weight:700;color:#b71c1c;border-bottom:2px solid #ffcdd2;padding-bottom:6px;margin:36px 0 14px;}
+h3{font-size:1rem;font-weight:700;color:#444;margin:22px 0 8px;}
+h4{font-size:0.92rem;font-weight:700;color:#666;margin:16px 0 6px;}
+p{margin-bottom:10px;}
+ul,ol{padding-left:1.5em;margin-bottom:10px;}
+li{margin-bottom:4px;}
+
+/* ── tables ── */
+.tbl-wrap{overflow-x:auto;margin-bottom:14px;}
+table{width:100%;border-collapse:collapse;font-size:0.88rem;}
+th{background:#b71c1c;color:white;padding:7px 10px;text-align:left;white-space:nowrap;}
+td{padding:7px 10px;border-bottom:1px solid #f5e0e0;vertical-align:top;}
+tr:nth-child(even) td{background:#fff8f8;}
+
+/* ── callouts ── */
+.note-box{background:#fff8e1;border-left:4px solid #ffb300;padding:10px 14px;border-radius:0 6px 6px 0;margin:10px 0 14px;font-size:0.88rem;}
+.tip-box{background:#e8f5e9;border-left:4px solid #43a047;padding:10px 14px;border-radius:0 6px 6px 0;margin:10px 0 14px;font-size:0.88rem;}
+.warn-box{background:#fce4ec;border-left:4px solid #e53935;padding:10px 14px;border-radius:0 6px 6px 0;margin:10px 0 14px;font-size:0.88rem;}
+
+/* ── badge samples ── */
+.badge-sample{display:inline-block;padding:2px 8px;border-radius:3px;font-size:0.8rem;font-weight:700;margin:0 2px;}
+.badge-plan{background:#ffcdd2;color:#b71c1c;}
+.badge-actual{background:#d32f2f;color:white;}
+.badge-comp-plan{background:#bbdefb;color:#1565c0;}
+.badge-comp-actual{background:#1565c0;color:white;}
+
+/* ── toc ── */
+.toc{background:#fff8f8;border:1px solid #ffcdd2;border-radius:8px;padding:14px 18px;margin-bottom:28px;}
+.toc-title{font-weight:700;color:#b71c1c;margin-bottom:8px;}
+.toc ol{padding-left:1.4em;margin:0;}
+.toc li{margin-bottom:3px;font-size:0.88rem;}
+.toc a{color:#b71c1c;text-decoration:none;}
+.toc a:hover{text-decoration:underline;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+    <button class="topbar-back" onclick="history.back()" aria-label="戻る">←</button>
+    <div>
+        <div class="topbar-title">ヘルプ</div>
+        <div class="topbar-sub">けんけつノート 使い方ガイド</div>
+    </div>
+</div>
+
+<div class="manual-wrap">
+
+<nav class="toc">
+    <div class="toc-title">目次</div>
+    <ol>
+        <li><a href="#overview">概要</a></li>
+        <li><a href="#rules">献血ルール（自動チェック）</a></li>
+        <li><a href="#ui">画面構成</a></li>
+        <li><a href="#operations">操作方法</a></li>
+        <li><a href="#types">種別一覧</a></li>
+        <li><a href="#howto">よくある使い方</a></li>
+        <li><a href="#stamp-link">全国スタンプとの連携</a></li>
+        <li><a href="#notes">注意事項</a></li>
+    </ol>
+</nav>
+
+<!-- ════════════════════════════ 1. 概要 ════════════════════════════ -->
+<h2 id="overview">概要</h2>
+
+<p>けんけつノートは、次の2つの機能を組み合わせた献血記録サービスです。</p>
+<ul>
+    <li><strong>全国スタンプ</strong>：全国の献血ルームをスタンプ帳として記録できます。</li>
+    <li><strong>計画管理</strong>：献血の予定・実績を管理し、献血ルールに基づく制限を自動チェックします。</li>
+</ul>
+<p>計画管理でルームを指定して実績を登録すると、全国スタンプに自動反映できます。</p>
+
+<div class="warn-box">
+    本サービスは日本赤十字社が公表している基準をもとに制限日・残り回数を計算しています。
+    ラブラッドや献血ルームで提示される情報と異なる場合は、<strong>赤十字社・献血ルームの提示を必ず優先</strong>してください。
+</div>
+
+<!-- ════════════════════════════ 2. 献血ルール ════════════════════════════ -->
+<h2 id="rules">献血ルール（システムが自動チェックする制限）</h2>
+
+<h3>インターバル制限</h3>
+<p>直前の献血種別によって、次回献血可能になるまでの待機期間が異なります。</p>
+<div class="tbl-wrap">
+<table>
+    <tr><th>直前の種別</th><th>全血が可能になるまで</th><th>成分が可能になるまで</th></tr>
+    <tr><td>全血（200ml / 400ml）</td><td>12週後</td><td>8週後</td></tr>
+    <tr><td>成分（血漿・血小板）</td><td>2週後</td><td>2週後</td></tr>
+</table>
+</div>
+
+<h3>年間上限（直近52週のローリングウィンドウ）</h3>
+<p>年間という区切りは暦年ではなく、<strong>直近52週間</strong>の実績・予定を常にスライドして計算します。</p>
+<div class="tbl-wrap">
+<table>
+    <tr><th>種別</th><th>上限</th></tr>
+    <tr><td>全血（200ml / 400ml 合算）</td><td>男性 1,200ml ／ 女性 800ml</td></tr>
+    <tr><td>成分（血漿1回・血小板2回カウント）</td><td>24回</td></tr>
+</table>
+</div>
+
+<div class="note-box">
+    全血の年間上限は<strong>性別設定</strong>に基づいて計算します（男性：1,200ml、女性：800ml）。
+    設定方法は「<a href="#gender">性別を設定する</a>」をご確認ください。
+</div>
+
+<!-- ════════════════════════════ 3. 画面構成 ════════════════════════════ -->
+<h2 id="ui">画面構成</h2>
+
+<h3>サマリーバー</h3>
+<p>画面上部に常時表示されます。</p>
+<ul>
+    <li><strong>全血プログレスバー</strong>：直近52週の使用量（残○○ml）</li>
+    <li><strong>成分プログレスバー</strong>：直近52週の使用回数（残○○回 / 24回）</li>
+    <li><strong>次回全血可能日</strong>：今日以降で全血可能な最短日</li>
+    <li><strong>次回成分可能日</strong>：今日以降で成分可能な最短日</li>
+</ul>
+<p>次回可能日には、制限の理由に応じてバッジが表示されます。</p>
+<div class="tbl-wrap">
+<table>
+    <tr><th>バッジ</th><th>意味</th></tr>
+    <tr><td>⚠ 年間上限</td><td>インターバルではなく年間上限が原因で遅れている</td></tr>
+    <tr><td>⚠ 手動制限</td><td>手動登録した制限期間が原因で遅れている</td></tr>
+</table>
+</div>
+
+<h4>手動制限一覧</h4>
+<p>現在有効な手動制限がある場合、サマリーバー下部に一覧表示されます。各制限の編集・削除もここから行えます。</p>
+
+<h3>カレンダー</h3>
+<p>月単位で表示します。</p>
+
+<h4>月の移動</h4>
+<ul>
+    <li>「＜」「＞」ボタンで前月・翌月に移動</li>
+    <li>当月以外を表示中は月タイトル横に「今月」ボタンが表示され、タップで当月に戻れます</li>
+    <li>前月・翌月の日付はグレーで表示（またがり表示）</li>
+</ul>
+
+<h4>祝日表示</h4>
+<p>祝日の日付は赤字で表示され、祝日名が小さく表示されます。</p>
+
+<h4>バッジ表示</h4>
+<p>カレンダー上の献血記録はバッジで表示されます。</p>
+<p>
+    <span class="badge-sample badge-plan">▷ 全血400</span> 予定（全血系）
+    <span class="badge-sample badge-actual">● 全血400</span> 実績（全血系）<br style="margin-bottom:4px"/>
+    <span class="badge-sample badge-comp-plan">▷ 血漿成分</span> 予定（成分系）
+    <span class="badge-sample badge-comp-actual">● 血漿成分</span> 実績（成分系）
+</p>
+
+<h4>セルの色分け</h4>
+<div class="tbl-wrap">
+<table>
+    <tr><th>背景色</th><th>意味</th></tr>
+    <tr><td>ピンク</td><td>全血・成分ともに不可</td></tr>
+    <tr><td>薄黄</td><td>全血のみ不可（成分は可）</td></tr>
+    <tr><td>薄青</td><td>成分のみ不可（全血は可）</td></tr>
+    <tr><td>薄紫</td><td>手動制限期間</td></tr>
+    <tr><td>白</td><td>制限なし</td></tr>
+</table>
+</div>
+<p>複数の制限が重なる場合は優先度の高いものが表示されます（手動制限 &gt; 全血成分不可 &gt; 片方不可）。</p>
+
+<h4>インジケータードット（セル右上の小さいマーク）</h4>
+<div class="tbl-wrap">
+<table>
+    <tr><th>マーク</th><th>色</th><th>意味</th></tr>
+    <tr><td>●</td><td>赤</td><td>全血不可（インターバルによる）</td></tr>
+    <tr><td>＊</td><td>赤</td><td>全血不可（年間上限による）</td></tr>
+    <tr><td>●</td><td>青</td><td>成分不可（インターバルによる）</td></tr>
+    <tr><td>＊</td><td>青</td><td>成分不可（年間上限による）</td></tr>
+    <tr><td>●</td><td>紫</td><td>手動制限（全血・成分両方不可）</td></tr>
+</table>
+</div>
+<p>インターバルと年間上限が同時に該当する場合は、より直接的な理由のインターバル（●）を表示します。</p>
+
+<h3>過去1年の実績・予定一覧</h3>
+<p>カレンダー下部に、過去1年分の実績と予定が新しい順で一覧表示されます。</p>
+
+<!-- ════════════════════════════ 4. 操作方法 ════════════════════════════ -->
+<h2 id="operations">操作方法</h2>
+
+<h3 id="gender">性別を設定する</h3>
+<p>全血の年間上限（男性1,200ml・女性800ml）の計算に使用します。</p>
+<ul>
+    <li><strong>初回登録時</strong>：利用開始モーダルで任意選択できます。</li>
+    <li><strong>後から設定</strong>：計画管理を最初に操作したとき、未設定の場合は画面上部の黄色いバナーから設定できます。</li>
+</ul>
+<div class="note-box">
+    全国スタンプのみ利用する場合は、性別設定は不要です。
+</div>
+
+<h3>予定・実績を追加する</h3>
+<p>空きセル（バッジのない日付）をタップすると追加モーダルが開きます。</p>
+<p>モーダル上部の「<strong>📅 予定 ／ ✅ 実績</strong>」タブで、登録する区分を選んでから保存してください。</p>
+<div class="tbl-wrap">
+<table>
+    <tr><th>区分</th><th>使い方</th></tr>
+    <tr><td>📅 予定</td><td>これから行く献血を事前に登録。制限チェックが走り、スケジュール管理に使えます。</td></tr>
+    <tr><td>✅ 実績</td><td>すでに行った献血を直接登録。予定を経ずにいきなり実績として記録できます。ルームを設定した場合は全国スタンプへの反映確認も表示されます。</td></tr>
+</table>
+</div>
+<ol>
+    <li>日付（自動入力）を確認</li>
+    <li>「📅 予定」または「✅ 実績」を選択</li>
+    <li>種別を選択（全血400ml / 全血200ml / 血漿成分 / 血小板成分）</li>
+    <li>献血ルームを選択（任意）</li>
+    <li>メモを入力（任意）</li>
+    <li>「保存」をタップ</li>
+</ol>
+<p>制限に引っかかる場合はエラーメッセージが表示され、保存できません。</p>
+
+<h3>献血ルームを選択する</h3>
+<p>予定・実績の追加・編集モーダルで、献血ルームを任意で設定できます。</p>
+<ul>
+    <li>「献血ルームを選択」ボタンをタップするとルームピッカーが開きます。</li>
+    <li>ルーム名で検索するか、都道府県タブで絞り込めます。</li>
+    <li>選択済みのルームを解除するには「×」をタップします。</li>
+</ul>
+<div class="tip-box">
+    ルームを設定しておくと、実績登録時に<strong>全国スタンプへの自動反映</strong>ができます。
+</div>
+
+<h3>記録の詳細を見る・操作する</h3>
+<p>バッジをタップすると詳細モーダルが開き、以下の操作ができます。</p>
+<ul>
+    <li><strong>実績に変換</strong>（予定のみ）：予定を実績に変換します</li>
+    <li><strong>編集</strong>：日付・種別・ルーム・メモを変更します</li>
+    <li><strong>削除</strong>：記録を削除します</li>
+</ul>
+
+<h4>PC（マウス）の場合</h4>
+<ul>
+    <li>バッジをホバーすると次回可能日のツールチップが表示されます</li>
+    <li>バッジをクリックすると詳細モーダルが開きます</li>
+</ul>
+
+<h4>スマホ・タブレットの場合</h4>
+<ul>
+    <li>バッジをタップするとツールチップが画面中央に表示されます</li>
+    <li>ツールチップ内の「詳細」ボタンをタップすると詳細モーダルが開きます</li>
+    <li>ツールチップ内の「閉じる」または背景タップで閉じます</li>
+    <li>同じバッジを再タップするとトグルで閉じます</li>
+</ul>
+
+<h3>次回可能日のツールチップ</h3>
+<p>バッジにホバー（PC）またはタップ（スマホ）すると、<strong>その献血の後に次回可能な全血・成分それぞれの日付</strong>が表示されます。</p>
+<p>2件目以降の予定を立てる際に活用してください。</p>
+<div class="tbl-wrap">
+<table>
+    <tr><th>バッジ</th><th>意味</th></tr>
+    <tr><td>⚠ 年間上限</td><td>年間上限により通常インターバルより遅い</td></tr>
+    <tr><td>⚠ 手動制限</td><td>手動制限期間により通常より遅い</td></tr>
+</table>
+</div>
+
+<h3>全国スタンプに反映する</h3>
+<p>実績を登録・変換する際に献血ルームが設定されている場合、モーダル内に「🗾 全国スタンプに反映する」トグルが表示されます。</p>
+<ul>
+    <li>トグルをオンにして保存すると、保存と同時に全国スタンプへ訪問記録が登録されます。</li>
+    <li>すでにそのルームにスタンプがある場合は、訪問日が今回の実績日で<strong>更新</strong>されます。</li>
+    <li>ルームが未設定の場合はトグルは表示されません。</li>
+</ul>
+
+<h3>実績に変換する</h3>
+<p>予定を実績に変換すると、後続の予定が制限に引っかかるケースがあります。その場合は<strong>再スケジュール確認ダイアログ</strong>が表示されます。</p>
+<ul>
+    <li><strong>「適用する」</strong>：後続予定を自動的に最短可能日に再調整します（元の間隔を保ちながら後ろにずらす）</li>
+    <li><strong>「再スケジュールしない」</strong>：後続予定はそのままにします</li>
+</ul>
+
+<h3>手動制限を登録する</h3>
+<p>手術後やワクチン接種後など、ルール上は可能でも献血できない期間を手動で登録できます。</p>
+<p>サマリーバー下部の「＋ 手動制限を追加」をタップします。</p>
+<ol>
+    <li>開始日を選択</li>
+    <li>日数を入力（制限終了日がプレビュー表示されます）</li>
+    <li>理由を入力（任意）</li>
+    <li>「保存」をタップ</li>
+</ol>
+<p>登録後、期間内に予定がある場合は再スケジュール確認ダイアログが表示されます。</p>
+
+<h4>開始日当日に献血がある場合の特別ルール</h4>
+<p>制限開始日に献血の予定・実績がある場合、<strong>制限は翌日から適用</strong>されます。<br>
+（例：献血してから帰りにワクチン接種 → 献血当日はカウント済みとして翌日から制限）</p>
+
+<h4>手動制限の編集・削除</h4>
+<p>サマリーバーの制限一覧から ✏（編集）または ×（削除）をタップします。</p>
+
+<!-- ════════════════════════════ 5. 種別一覧 ════════════════════════════ -->
+<h2 id="types">種別一覧</h2>
+<div class="tbl-wrap">
+<table>
+    <tr><th>種別</th><th>内容</th><th>年間上限カウント</th></tr>
+    <tr><td>全血 400ml</td><td>全血献血（400ml）</td><td>400ml</td></tr>
+    <tr><td>全血 200ml</td><td>全血献血（200ml）</td><td>200ml</td></tr>
+    <tr><td>血漿成分</td><td>成分献血（血漿）</td><td>1回</td></tr>
+    <tr><td>血小板成分</td><td>成分献血（血小板）</td><td>2回</td></tr>
+</table>
+</div>
+
+<!-- ════════════════════════════ 6. よくある使い方 ════════════════════════════ -->
+<h2 id="howto">よくある使い方</h2>
+
+<h3>連続した計画を立てる</h3>
+<ol>
+    <li>最初の予定日をカレンダーでタップして予定追加</li>
+    <li>追加した予定のバッジにホバー（またはタップ）してツールチップを確認</li>
+    <li>表示された「次回可能日」以降の日付をタップして次の予定を追加</li>
+    <li>これを繰り返す</li>
+</ol>
+
+<h3>献血後に予定を実績に変換する</h3>
+<ol>
+    <li>実績日のバッジをタップ</li>
+    <li>詳細モーダルの「実績に変換」をタップ</li>
+    <li>種別・ルームを確認（変更も可能）</li>
+    <li>「変換する」をタップ</li>
+    <li>後続予定に影響がある場合は再スケジュールダイアログを確認して「適用する」</li>
+    <li>ルームが設定されている場合、全国スタンプへの反映確認が表示されます</li>
+</ol>
+
+<h3>ワクチン接種後の制限を登録する</h3>
+<ol>
+    <li>サマリーバーの「＋ 手動制限を追加」をタップ</li>
+    <li>接種日を開始日に設定（当日に献血がある場合は翌日から制限が始まります）</li>
+    <li>接種したワクチンの制限日数を入力</li>
+    <li>理由に「○○ワクチン」などを入力</li>
+    <li>保存</li>
+</ol>
+
+<!-- ════════════════════════════ 7. 全国スタンプとの連携 ════════════════════════════ -->
+<h2 id="stamp-link">全国スタンプとの連携</h2>
+
+<p>計画管理で<strong>実績登録・変換時にルームが設定されている</strong>場合、モーダル内のトグルで全国スタンプへの反映を選べます。</p>
+
+<h3>反映の手順</h3>
+<ol>
+    <li>予定または実績の追加・変換モーダルで献血ルームを選択する</li>
+    <li>モーダル内に表示される「🗾 全国スタンプに反映する」トグルをオンにする</li>
+    <li>「保存」または「変換する」をタップ → 保存と同時にスタンプが登録される</li>
+</ol>
+
+<div class="tip-box">
+    すでにそのルームにスタンプがある場合は、訪問日が今回の実績日で<strong>更新</strong>されます。トグルがオフのままでも、あとから全国スタンプページで手動登録できます。
+</div>
+
+<h3>スタンプ帳で確認する</h3>
+<p>反映後は画面右上のハンバーガーメニューから「🗾 全国スタンプ」に移動して確認できます。</p>
+
+<h3>全国スタンプ単体でも記録できます</h3>
+<p>計画管理を使わずに、全国スタンプページから直接各ルームの訪問記録を登録・編集することもできます。</p>
+
+<!-- ════════════════════════════ 8. 注意事項 ════════════════════════════ -->
+<h2 id="notes">注意事項</h2>
+<ul>
+    <li>年間上限の計算は<strong>直近52週のローリングウィンドウ</strong>で行われます。暦年（1月〜12月）ではありません。</li>
+    <li>予定は計画値として制限チェックに含まれます。予定を削除・変更すると制限の計算も変わります。</li>
+    <li>手動制限は全血・成分の両方に適用されます。種別ごとの制限は現在非対応です。</li>
+    <li>マイページのURLは誰でもアクセスできます。URLを知っている人は閲覧できますのでご注意ください。</li>
+    <li>本サービスは日本赤十字社が公表している基準を参考に制限を計算していますが、実際の献血可否はラブラッドや献血ルームの判断が最終基準となります。本サービスの計算結果と異なる場合は、<strong>赤十字社・献血ルームの提示を優先</strong>してください。</li>
+</ul>
+
+</div>
+</body>
+</html>

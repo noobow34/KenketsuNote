@@ -1,0 +1,438 @@
+using KenketsuNote.Data;
+
+namespace KenketsuNote.Services;
+
+/// <summary>
+/// 献血の制限チェック・次回可能日計算・再スケジュール計算サービス
+/// </summary>
+public class KenketsuLimitService
+{
+    // ── 定数 ─────────────────────────────────────────────────────
+    private const int RollingWeeks      = 52;
+    private const int ComponentMaxCount = 24;
+
+    private readonly int _wholeMaxMl;
+
+    public KenketsuLimitService(int wholeMaxMl = 1200)
+    {
+        _wholeMaxMl = wholeMaxMl;
+    }
+
+    public static int WholeMaxMlForGender(string? gender) => gender == "female" ? 800 : 1200;
+    private const int WholeAfterWholeDays     = 12 * 7;  // 84日
+    private const int ComponentAfterWholeDays = 8  * 7;  // 56日
+    private const int AnyAfterComponentDays   = 2  * 7;  // 14日
+
+    // ── 公開メソッド ──────────────────────────────────────────────
+
+    public ValidationResult Validate(
+        DateOnly targetDate,
+        string donationType,
+        IReadOnlyList<KenketsuRecord> records,
+        IReadOnlyList<KenketsuRestriction>? restrictions = null,
+        int? excludeId = null)
+    {
+        var others = records.Where(r => excludeId == null || r.Id != excludeId).ToList();
+
+        if (restrictions != null)
+        {
+            var hit = restrictions.FirstOrDefault(r => EffectiveContains(r, targetDate, others));
+            if (hit != null)
+                return ValidationResult.Fail(
+                    $"手動制限期間中です（{hit.StartDate:yyyy/MM/dd}〜{hit.EndDate:yyyy/MM/dd}）" +
+                    (hit.Reason != null ? $"：{hit.Reason}" : ""));
+        }
+
+        var intervalError = CheckInterval(targetDate, donationType, others);
+        if (intervalError != null) return ValidationResult.Fail(intervalError);
+
+        var limitError = CheckRollingLimit(targetDate, donationType, others);
+        if (limitError != null) return ValidationResult.Fail(limitError);
+
+        return ValidationResult.Ok();
+    }
+
+    public DateOnly EarliestPossibleDate(
+        DateOnly from,
+        string donationType,
+        IReadOnlyList<KenketsuRecord> records,
+        IReadOnlyList<KenketsuRestriction>? restrictions = null,
+        int? excludeId = null)
+        => EarliestPossibleDateWithReason(from, donationType, records, restrictions, excludeId).Date;
+
+    public (DateOnly Date, bool LimitConstrained, bool RestrictionConstrained)
+        EarliestPossibleDateWithReason(
+            DateOnly from,
+            string donationType,
+            IReadOnlyList<KenketsuRecord> records,
+            IReadOnlyList<KenketsuRestriction>? restrictions = null,
+            int? excludeId = null)
+    {
+        var others = records.Where(r => excludeId == null || r.Id != excludeId).ToList();
+
+        DateOnly intervalEarliest = from;
+        for (int i = 0; i < 365 * 3; i++)
+        {
+            if (CheckInterval(intervalEarliest, donationType, others) == null)
+                break;
+            intervalEarliest = intervalEarliest.AddDays(1);
+        }
+
+        DateOnly afterLimit = intervalEarliest;
+        for (int i = 0; i < 365 * 3; i++)
+        {
+            if (CheckRollingLimit(afterLimit, donationType, others) == null)
+                break;
+            afterLimit = afterLimit.AddDays(1);
+        }
+
+        DateOnly actual = afterLimit;
+        if (restrictions != null && restrictions.Count > 0)
+        {
+            for (int i = 0; i < 365 * 3; i++)
+            {
+                var hit = restrictions.FirstOrDefault(r => EffectiveContains(r, actual, others));
+                if (hit == null) break;
+                actual = hit.EndDate.AddDays(1);
+            }
+        }
+
+        bool limitConstrained       = afterLimit > intervalEarliest;
+        bool restrictionConstrained = actual > afterLimit;
+        return (actual, limitConstrained, restrictionConstrained);
+    }
+
+    public IReadOnlyList<RescheduleProposal> CalculateReschedule(
+        KenketsuRecord triggerRecord,
+        IReadOnlyList<KenketsuRecord> allRecords,
+        IReadOnlyList<KenketsuRestriction>? restrictions = null)
+    {
+        var futurePlans = allRecords
+            .Where(r => r.IsPlan && r.DonationDate > triggerRecord.DonationDate)
+            .OrderBy(r => r.DonationDate)
+            .ToList();
+
+        if (futurePlans.Count == 0) return [];
+
+        var proposals = new List<RescheduleProposal>();
+
+        var simRecords = allRecords
+            .Where(r => r.IsActual || r.Id == triggerRecord.Id)
+            .Select(Clone)
+            .ToList();
+
+        var gapBase = triggerRecord.DonationDate;
+        var originalGaps = futurePlans.Select(p =>
+        {
+            int gap = p.DonationDate.DayNumber - gapBase.DayNumber;
+            gapBase = p.DonationDate;
+            return gap;
+        }).ToList();
+
+        var prevDate = triggerRecord.DonationDate;
+        for (int i = 0; i < futurePlans.Count; i++)
+        {
+            var plan    = futurePlans[i];
+            var ideal   = prevDate.AddDays(originalGaps[i]);
+            var newDate = EarliestPossibleDate(ideal, plan.DonationType, simRecords, restrictions);
+
+            if (newDate != plan.DonationDate)
+            {
+                proposals.Add(new RescheduleProposal
+                {
+                    RecordId     = plan.Id,
+                    DonationType = plan.DonationType,
+                    OriginalDate = plan.DonationDate,
+                    NewDate      = newDate,
+                });
+            }
+
+            var sim = Clone(plan);
+            sim.DonationDate = newDate;
+            simRecords.Add(sim);
+            prevDate = newDate;
+        }
+
+        return proposals;
+    }
+
+    public KenketsuSummary CalculateSummary(
+        DateOnly baseDate,
+        IReadOnlyList<KenketsuRecord> records,
+        IReadOnlyList<KenketsuRestriction>? restrictions = null)
+    {
+        var windowStart = baseDate.AddDays(-(RollingWeeks * 7 - 1));
+        var inWindow = records
+            .Where(r => r.DonationDate >= windowStart && r.DonationDate <= baseDate)
+            .ToList();
+
+        int usedMl    = inWindow.Where(r => r.IsWhole).Sum(r => r.VolumeMl ?? 0);
+        int usedCount = inWindow.Where(r => r.IsComponent).Sum(r => r.ComponentCount ?? 0);
+
+        var (wholeDate, wholeLC, wholeRC) = TryEarliestDateWithReason("whole_400", baseDate, records, restrictions);
+        var (compDate,  compLC,  compRC)  = TryEarliestDateWithReason("plasma",    baseDate, records, restrictions);
+
+        var activeRestrictions = restrictions?
+            .Where(r => r.EndDate >= baseDate)
+            .OrderBy(r => r.StartDate)
+            .ToList() ?? [];
+
+        return new KenketsuSummary
+        {
+            UsedVolumeMl                        = usedMl,
+            MaxVolumeMl                         = _wholeMaxMl,
+            UsedComponentCount                  = usedCount,
+            MaxComponentCount                   = ComponentMaxCount,
+            NextWholePossible                   = wholeDate,
+            NextComponentPossible               = compDate,
+            NextWholeLimitConstrained           = wholeLC,
+            NextComponentLimitConstrained       = compLC,
+            NextWholeRestrictionConstrained     = wholeRC,
+            NextComponentRestrictionConstrained = compRC,
+            ActiveRestrictions                  = activeRestrictions,
+        };
+    }
+
+    public IReadOnlyList<DateRangeInfo> GetIntervalConstrainedRanges(
+        DateOnly from, DateOnly to,
+        IReadOnlyList<KenketsuRecord> records)
+    {
+        var result = new List<DateRangeInfo>();
+        var sorted = records.OrderBy(r => r.DonationDate).ToList();
+
+        string? prevKind  = null;
+        DateOnly? rangeStart = null;
+
+        for (var d = from; d <= to; d = d.AddDays(1))
+        {
+            var last = sorted.LastOrDefault(r => r.DonationDate < d);
+            string? kind = null;
+
+            if (last != null)
+            {
+                int days = d.DayNumber - last.DonationDate.DayNumber;
+
+                bool wholeBlocked, compBlocked;
+                if (last.IsWhole)
+                {
+                    wholeBlocked = days < WholeAfterWholeDays;
+                    compBlocked  = days < ComponentAfterWholeDays;
+                }
+                else
+                {
+                    wholeBlocked = days < AnyAfterComponentDays;
+                    compBlocked  = days < AnyAfterComponentDays;
+                }
+
+                if (wholeBlocked && compBlocked)
+                    kind = "interval_both";
+                else if (wholeBlocked)
+                    kind = "interval_whole";
+            }
+
+            if (kind != prevKind)
+            {
+                if (prevKind != null && rangeStart != null)
+                    result.Add(new DateRangeInfo(rangeStart.Value, d.AddDays(-1), prevKind));
+                rangeStart = kind != null ? d : null;
+                prevKind   = kind;
+            }
+        }
+        if (prevKind != null && rangeStart != null)
+            result.Add(new DateRangeInfo(rangeStart.Value, to, prevKind));
+
+        return result;
+    }
+
+    public IReadOnlyList<DateRangeInfo> GetLimitConstrainedRanges(
+        DateOnly from, DateOnly to,
+        IReadOnlyList<KenketsuRecord> records)
+    {
+        var result    = new List<DateRangeInfo>();
+        string? prevKind  = null;
+        DateOnly? rangeStart = null;
+
+        for (var d = from; d <= to; d = d.AddDays(1))
+        {
+            var windowStart = d.AddDays(-(RollingWeeks * 7 - 1));
+            var inWindow = records
+                .Where(r => r.DonationDate >= windowStart && r.DonationDate <= d)
+                .ToList();
+
+            int usedMl    = inWindow.Where(r => r.IsWhole).Sum(r => r.VolumeMl ?? 0);
+            int usedCount = inWindow.Where(r => r.IsComponent).Sum(r => r.ComponentCount ?? 0);
+
+            bool wholeLimit = usedMl    >= _wholeMaxMl;
+            bool compLimit  = usedCount >= ComponentMaxCount;
+
+            string? kind = (wholeLimit, compLimit) switch
+            {
+                (true,  true)  => "limit_both",
+                (true,  false) => "limit_whole",
+                (false, true)  => "limit_comp",
+                _              => null,
+            };
+
+            if (kind != prevKind)
+            {
+                if (prevKind != null && rangeStart != null)
+                    result.Add(new DateRangeInfo(rangeStart.Value, d.AddDays(-1), prevKind));
+                rangeStart = kind != null ? d : null;
+                prevKind   = kind;
+            }
+        }
+        if (prevKind != null && rangeStart != null)
+            result.Add(new DateRangeInfo(rangeStart.Value, to, prevKind));
+
+        return result;
+    }
+
+    // ── プライベート ──────────────────────────────────────────────
+
+    private static DateOnly EffectiveStartDate(
+        KenketsuRestriction restriction,
+        IList<KenketsuRecord> records)
+    {
+        bool hasDonationOnStart = records.Any(r => r.DonationDate == restriction.StartDate);
+        return hasDonationOnStart
+            ? restriction.StartDate.AddDays(1)
+            : restriction.StartDate;
+    }
+
+    private static bool EffectiveContains(
+        KenketsuRestriction restriction,
+        DateOnly date,
+        IList<KenketsuRecord> records)
+    {
+        var effectiveStart = EffectiveStartDate(restriction, records);
+        return date >= effectiveStart && date <= restriction.EndDate;
+    }
+
+    private static string? CheckInterval(
+        DateOnly targetDate,
+        string donationType,
+        IList<KenketsuRecord> others)
+    {
+        var last = others
+            .Where(r => r.DonationDate < targetDate)
+            .MaxBy(r => r.DonationDate);
+        if (last == null) return null;
+
+        int daysSince = targetDate.DayNumber - last.DonationDate.DayNumber;
+
+        if (last.IsWhole)
+        {
+            int required = donationType is "whole_200" or "whole_400"
+                ? WholeAfterWholeDays : ComponentAfterWholeDays;
+            if (daysSince < required)
+            {
+                var earliest = last.DonationDate.AddDays(required);
+                return $"直前の全血献血（{last.DonationDate:yyyy/MM/dd}）から" +
+                       $"{required / 7}週間後の {earliest:yyyy/MM/dd} 以降に可能です。";
+            }
+        }
+        else
+        {
+            if (daysSince < AnyAfterComponentDays)
+            {
+                var earliest = last.DonationDate.AddDays(AnyAfterComponentDays);
+                return $"直前の成分献血（{last.DonationDate:yyyy/MM/dd}）から" +
+                       $"2週間後の {earliest:yyyy/MM/dd} 以降に可能です。";
+            }
+        }
+        return null;
+    }
+
+    private string? CheckRollingLimit(
+        DateOnly targetDate,
+        string donationType,
+        IList<KenketsuRecord> others)
+    {
+        var windowStart = targetDate.AddDays(-(RollingWeeks * 7 - 1));
+        var inWindow = others
+            .Where(r => r.DonationDate >= windowStart && r.DonationDate <= targetDate)
+            .ToList();
+
+        if (donationType is "whole_200" or "whole_400")
+        {
+            int add  = donationType == "whole_200" ? 200 : 400;
+            int used = inWindow.Where(r => r.IsWhole).Sum(r => r.VolumeMl ?? 0);
+            if (used + add > _wholeMaxMl)
+                return $"直近52週の全血献血量が上限（{_wholeMaxMl}ml）を超えます。" +
+                       $"（使用済み {used}ml ＋ 追加 {add}ml）";
+        }
+        else
+        {
+            int add  = donationType == "platelet" ? 2 : 1;
+            int used = inWindow.Where(r => r.IsComponent).Sum(r => r.ComponentCount ?? 0);
+            if (used + add > ComponentMaxCount)
+                return $"直近52週の成分献血回数が上限（{ComponentMaxCount}回）を超えます。" +
+                       $"（使用済み {used}回 ＋ 追加 {add}回）";
+        }
+        return null;
+    }
+
+    private (DateOnly? Date, bool LimitConstrained, bool RestrictionConstrained)
+        TryEarliestDateWithReason(
+            string donationType, DateOnly from,
+            IReadOnlyList<KenketsuRecord> records,
+            IReadOnlyList<KenketsuRestriction>? restrictions)
+    {
+        try
+        {
+            var (date, lc, rc) = EarliestPossibleDateWithReason(from, donationType, records, restrictions);
+            return (date, lc, rc);
+        }
+        catch { return (null, false, false); }
+    }
+
+    private static KenketsuRecord Clone(KenketsuRecord r) => new()
+    {
+        Id             = r.Id,
+        UserId         = r.UserId,
+        DonationDate   = r.DonationDate,
+        DonationType   = r.DonationType,
+        RecordType     = r.RecordType,
+        VolumeMl       = r.VolumeMl,
+        ComponentCount = r.ComponentCount,
+    };
+}
+
+// ── DTO ───────────────────────────────────────────────────────────
+
+public class ValidationResult
+{
+    public bool    IsValid      { get; private init; }
+    public string? ErrorMessage { get; private init; }
+
+    public static ValidationResult Ok()             => new() { IsValid = true };
+    public static ValidationResult Fail(string msg) => new() { IsValid = false, ErrorMessage = msg };
+}
+
+public class RescheduleProposal
+{
+    public int      RecordId     { get; init; }
+    public string   DonationType { get; init; } = "";
+    public DateOnly OriginalDate { get; init; }
+    public DateOnly NewDate      { get; init; }
+}
+
+public record DateRangeInfo(DateOnly Start, DateOnly End, string Kind);
+
+public class KenketsuSummary
+{
+    public int       UsedVolumeMl                        { get; init; }
+    public int       MaxVolumeMl                         { get; init; }
+    public int       UsedComponentCount                  { get; init; }
+    public int       MaxComponentCount                   { get; init; }
+    public DateOnly? NextWholePossible                   { get; init; }
+    public DateOnly? NextComponentPossible               { get; init; }
+    public bool      NextWholeLimitConstrained           { get; init; }
+    public bool      NextComponentLimitConstrained       { get; init; }
+    public bool      NextWholeRestrictionConstrained     { get; init; }
+    public bool      NextComponentRestrictionConstrained { get; init; }
+    public IReadOnlyList<KenketsuRestriction> ActiveRestrictions { get; init; } = [];
+
+    public int RemainingMl    => MaxVolumeMl       - UsedVolumeMl;
+    public int RemainingCount => MaxComponentCount - UsedComponentCount;
+}

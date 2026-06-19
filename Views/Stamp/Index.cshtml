@@ -1,0 +1,762 @@
+@using KenketsuNote.Data
+@using KenketsuNote.Models
+@model StampModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>けんけつノート 全国スタンプ@if (!string.IsNullOrEmpty(Model.User.UserName)){<text>（@Model.User.UserName さん）</text>}</title>
+    <style>
+        body {
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+            user-select: none;
+        }
+        h1 { text-align: center; margin-bottom: 40px; color: #b71c1c; }
+        .back-link { font-size: 0.85em; color: #d32f2f; text-decoration: none; display: inline-block; margin-bottom: 8px; }
+        .back-link:hover { text-decoration: underline; }
+        .status-bar {
+            text-align: center;
+            margin-bottom: 30px;
+            font-weight: bold;
+            background: #ffebeb;
+            padding: 10px;
+            border-radius: 8px;
+            color: #d32f2f;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .reset-btn {
+            background: #fff;
+            border: 1px solid #d32f2f;
+            color: #d32f2f;
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 2px 10px;
+            font-size: 0.8em;
+        }
+        .accordion-header {
+            cursor: pointer;
+            padding: 14px 16px;
+            background: #ffecec;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+        }
+        .accordion-header::after { content: "▼"; margin-left: 10px; transition: transform 0.2s; }
+        .accordion-header.open::after { transform: rotate(-180deg); }
+        .accordion-content { display: none; margin-bottom: 40px; }
+        .accordion-content.open { display: block; }
+        .region-center { text-align: center; min-width: 170px; }
+        .region-text { font-size: 0.85em; color: #444; }
+        .region-bar { height: 6px; background: #ddd; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+        .region-bar-fill { height: 100%; width: 0%; background: #d32f2f; transition: width 0.3s; }
+        .pref-header {
+            cursor: pointer;
+            padding: 10px 12px;
+            margin: 18px 0 8px;
+            background: #fafafa;
+            border-left: 4px solid #d32f2f;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+        }
+        .pref-left { display: flex; align-items: center; gap: 6px; }
+        .pref-arrow { font-size: 0.8em; transition: transform 0.2s; }
+        .pref-header.open .pref-arrow { transform: rotate(-180deg); }
+        .pref-right { display: flex; align-items: center; gap: 8px; font-size: 0.8em; color: #444; }
+        .pref-bar { width: 60px; height: 5px; background: #ddd; border-radius: 3px; overflow: hidden; }
+        .pref-bar-fill { height: 100%; width: 0%; background: #d32f2f; transition: width 0.3s; }
+        .pref-content { display: none; }
+        .pref-content.open { display: block; }
+        .room-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+        .room-card {
+            border: 1px solid #eee;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+            padding-bottom: 10px;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.1s;
+        }
+        .room-card:active { transform: scale(0.98); }
+        .room-card:focus { outline: 2px dashed #d32f2f; }
+        .room-image { width: 100%; height: 150px; object-fit: cover; background-color: #f0f0f0; display: block; transition: opacity 0.3s; }
+        .room-name { margin-top: 10px; font-weight: bold; font-size: 0.95em; padding: 0 10px; }
+        .room-remark { margin-top: 4px; font-size: 0.75em; color: #888; padding: 0 10px; line-height: 1.4; }
+        .room-card.visited .room-image { opacity: 0.5; filter: grayscale(30%); }
+        .room-card.closed { border: 1px solid #ccc; opacity: 0.55; }
+        .room-card.closed .room-image { filter: grayscale(100%); }
+        .closed-badge {
+            position: absolute; top: 6px; left: 6px;
+            background: rgba(80,80,80,0.75); color: #fff; font-size: 10px;
+            padding: 2px 6px; border-radius: 4px; pointer-events: none; z-index: 5;
+        }
+        .hide-closed .room-card.closed { display: none; }
+        .stamp-mark {
+            position: absolute; inset: 0;
+            display: flex; justify-content: center; align-items: center;
+            pointer-events: none; z-index: 10;
+        }
+        .animate-stamp .stamp-inner { animation: stamp-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .stamp-inner {
+            width: 90px; height: 90px;
+            border: 3px double #d32f2f; border-radius: 50%;
+            background-color: rgba(255,255,255,0.9); color: #d32f2f;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+        }
+        .stamp-title { font-size: 28px; font-weight: bold; line-height: 1; margin-top: 5px; }
+        .stamp-date-line { width: 70%; height: 1px; background-color: #d32f2f; margin: 4px 0; }
+        .stamp-date { font-size: 13px; font-weight: bold; font-family: monospace; }
+        @@keyframes stamp-pop {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        #dateModal {
+            display: none; position: fixed; inset: 0;
+            background-color: rgba(0,0,0,0.4);
+            justify-content: center; align-items: center; z-index: 50;
+        }
+        #dateModalContent { background: #fff; padding: 20px; border-radius: 8px; text-align: center; }
+        #dateModal input[type="date"] { font-size: 1em; padding: 5px; }
+        #dateModal button {
+            margin: 10px 5px 0 5px; padding: 5px 10px;
+            border-radius: 4px; border: 1px solid #d32f2f;
+            background: #fff; color: #d32f2f; cursor: pointer;
+        }
+        .status-bar.overall {
+            background: #fff5f5; border: 2px solid #d32f2f; align-items: center;
+        }
+        .overall-title { font-size: 1.1em; font-weight: bold; color: #d32f2f; }
+        .overall-left, .overall-center, .overall-right { display: flex; align-items: center; }
+        .overall-center { flex-direction: column; min-width: 200px; }
+        .overall-center .region-bar { width: 180px; }
+        .overall-right { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-start; }
+        .control-row { display: flex; gap: 6px; flex-wrap: nowrap; justify-content: flex-start; }
+        @@media (max-width: 600px) {
+            .overall-right { flex-direction: column; align-items: flex-start; }
+            .control-row { flex-wrap: wrap; }
+        }
+        .bookmark-guide {
+            background: #fff5f5; border: 2px dashed #d32f2f;
+            border-radius: 10px; padding: 14px 16px; margin-bottom: 30px; text-align: center;
+        }
+        .bookmark-title { font-size: 0.9em; font-weight: bold; color: #d32f2f; margin-bottom: 10px; }
+        .bookmark-actions {
+            display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px;
+        }
+        .bookmark-actions input {
+            width: 320px; padding: 6px 8px; font-size: 0.85em;
+            border: 1px solid #d32f2f; border-radius: 6px; background: #fff; color: #333;
+        }
+        .bookmark-actions input:focus { outline: none; box-shadow: 0 0 0 2px rgba(211,47,47,0.15); }
+        .bookmark-actions button {
+            padding: 6px 12px; font-size: 0.85em; border-radius: 6px;
+            border: 1px solid #d32f2f; background: #fff; color: #d32f2f; cursor: pointer; white-space: nowrap;
+        }
+        .bookmark-actions button:hover { background: #ffecec; }
+        .bookmark-actions button:active { transform: scale(0.97); }
+        .bookmark-message { display: none; margin-top: 6px; font-size: 0.8em; color: #2e7d32; }
+        .bookmark-actions button:disabled { color: #aaa; border-color: #ddd; background: #f5f5f5; cursor: not-allowed; opacity: 0.6; }
+        .share-view .room-card { cursor: default; }
+        .share-view .room-card:active { transform: none; }
+        .share-view .room-card:focus { outline: none; }
+        .share-icons { display: flex; gap: 10px; align-items: center; }
+        .share-icons img { width: 28px; height: 28px; cursor: pointer; transition: transform 0.15s, opacity 0.15s; }
+        .share-icons a:hover img { transform: scale(1.1); opacity: 0.85; }
+        .share-icons a:active img { transform: scale(0.95); }
+        @@media (max-width: 600px) {
+            .bookmark-actions { flex-wrap: wrap; align-items: stretch; }
+            .bookmark-actions .share-url-wrapper, .bookmark-actions .share-icons { flex: 0 0 100%; }
+            .bookmark-actions button { flex: 1 1 0; width: auto; padding: 6px 4px; font-size: 0.8em; white-space: nowrap; }
+        }
+        .drag-handle { cursor: grab; margin-right: 8px; font-size: 1.2em; color: #999; }
+        .drag-handle:active { cursor: grabbing; }
+        .accordion-header:hover, .pref-header:hover { background: #ffdede; cursor: grab; }
+        .accordion-left { display: flex; align-items: center; gap: 8px; }
+        .sort-mode .accordion-header { background: #fff3f3; cursor: grab; }
+        .sort-mode .pref-header { cursor: grab; }
+        .sort-mode .accordion-header::after, .sort-mode .pref-arrow { opacity: 0.3; }
+        .sort-mode .drag-handle { display: inline; color: #d32f2f; }
+        .drag-handle { display: none; }
+        .share-accordion { background: transparent; border: none; padding: 0; margin-bottom: 20px; }
+        .share-accordion .accordion-header {
+            background: #fafafa; border: 1px dashed #ddd; border-radius: 6px;
+            padding: 6px 10px; font-size: 0.8em; font-weight: normal; color: #666; margin-bottom: 0;
+        }
+        .share-accordion .accordion-header::after { font-size: 0.7em; color: #999; }
+        .share-accordion .accordion-header.open { background: #fff5f5; border-color: #d32f2f; color: #d32f2f; }
+        .share-accordion .accordion-content { margin-top: 8px; }
+        .share-url {
+            width: 100%; padding: 10px 12px; font-size: 14px;
+            border: 1px solid #ccc; border-radius: 6px; background: #fafafa; cursor: pointer;
+        }
+        .share-url.copied { background: #e8f8f0; border-color: #2ecc71; }
+        .share-url-wrapper { position: relative; padding: 10px; }
+        .copy-toast {
+            position: absolute; top: -8px; right: 6px; font-size: 11px;
+            padding: 2px 6px; border-radius: 4px; background: #2ecc71; color: #fff;
+            opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+        }
+        .copy-toast.show { opacity: 1; }
+        .toggle-switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+        .toggle-switch input[type="checkbox"] { display: none; }
+        .toggle-track { position: relative; width: 44px; height: 24px; background: #ccc; border-radius: 12px; transition: background 0.25s; }
+        .toggle-thumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.25); transition: left 0.25s; }
+        .toggle-switch input:checked + .toggle-track { background: #d32f2f; }
+        .toggle-switch input:checked + .toggle-track .toggle-thumb { left: 23px; }
+        .toggle-label { font-size: 0.82em; color: #555; min-width: 2.5em; }
+        /* ── ナビゲーション ── */
+        .nav-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid #ffebeb; }
+        .nav-brand { font-size: 1rem; font-weight: 700; color: #b71c1c; }
+        .nav-page-subtitle { font-size: 0.82rem; color: #888; margin-top: 1px; }
+        .nav-hamburger { background: none; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 6px 10px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+        .nav-hamburger span { display: block; width: 20px; height: 2px; background: #555; border-radius: 2px; }
+        .nav-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 2000; }
+        .nav-overlay.open { display: block; }
+        .nav-drawer { position: fixed; top: 0; right: -280px; width: 260px; height: 100vh; background: white; z-index: 2001; box-shadow: -4px 0 20px rgba(0,0,0,0.15); transition: right 0.25s ease; display: flex; flex-direction: column; }
+        .nav-drawer.open { right: 0; }
+        .nav-drawer-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 14px; border-bottom: 1px solid #f0f0f0; }
+        .nav-drawer-title { font-size: 1.1rem; font-weight: 700; color: #b71c1c; }
+        .nav-drawer-close { background: none; border: none; font-size: 1.3rem; color: #aaa; cursor: pointer; }
+        .nav-drawer-close:hover { color: #555; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 14px 20px; text-decoration: none; color: #333; font-size: 0.95rem; border-bottom: 1px solid #f8f8f8; transition: background 0.1s; }
+        .nav-item:hover { background: #fff5f5; }
+        .nav-item.nav-current { background: #fff0f0; color: #b71c1c; font-weight: 700; border-left: 4px solid #d32f2f; }
+        .nav-item-icon { font-size: 1.1rem; width: 24px; text-align: center; flex-shrink: 0; }
+    </style>
+</head>
+<body class="@(Model.IsShare ? "share-view" : "") @(!Model.ShowClosedDefault ? "hide-closed" : "")"
+      data-user-id="@Model.User.UserId"
+      data-show-closed-default="@(Model.ShowClosedDefault ? "1" : "0")">
+
+    <div class="nav-topbar">
+        <div>
+            <div class="nav-brand">けんけつノート</div>
+            <div class="nav-page-subtitle">全国スタンプ@(string.IsNullOrEmpty(Model.User.UserName) ? "" : $"（{Model.User.UserName} さん）")</div>
+        </div>
+        @if (!Model.IsShare) {
+            <button class="nav-hamburger" onclick="openNav()" aria-label="メニュー"><span></span><span></span><span></span></button>
+        }
+    </div>
+
+    <div class="status-bar overall">
+        <div class="overall-left">
+            <span class="overall-title">全国進捗</span>
+        </div>
+        <div class="overall-center">
+            <div class="region-text" id="overall-text">0 / 0（0%）</div>
+            <div class="region-bar">
+                <div class="region-bar-fill" id="overall-bar"></div>
+            </div>
+        </div>
+        @if (!Model.IsShare)
+        {
+            <div class="overall-right">
+                <button id="reset-all" class="reset-btn">全記録削除</button>
+            </div>
+        }
+    </div>
+
+    @if (!Model.IsShare)
+    {
+        <div class="bookmark-guide share-accordion">
+            <div class="accordion-header">
+                <span>📌 このページのURLをブックマークしてご使用ください</span>
+            </div>
+            <div class="accordion-content">
+                <div class="share-url-wrapper">
+                    <div class="bookmark-actions">
+                        <input type="text" id="pageUrl" class="share-url" readonly>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="bookmark-guide share-accordion">
+            <div class="accordion-header">
+                <span>🔗 シェア用URL</span>
+                @if (!string.IsNullOrEmpty(Model.ShareId))
+                {
+                    <small style="opacity:.6;">（発行済み）</small>
+                }
+            </div>
+            <div class="accordion-content">
+                <div class="bookmark-title">このURLでアクセスすると編集不可・閲覧専用になります</div>
+                <div class="bookmark-actions">
+                    <button id="createShareUrlBtn" @(!string.IsNullOrEmpty(Model.ShareId) ? "disabled" : "")>シェア用URL発行</button>
+                    <button id="deleteShareUrlBtn" @(string.IsNullOrEmpty(Model.ShareId) ? "disabled" : "")>削除</button>
+                    <div class="share-url-wrapper">
+                        <input type="text" id="shareUrl" class="share-url" readonly
+                               value="@(!string.IsNullOrEmpty(Model.ShareId) ? $"/s/{Model.ShareId}" : "")"
+                               placeholder="URLを発行してください">
+                    </div>
+                    <div class="share-icons">
+                        <a id="share-x" target="_blank" title="Xでシェア"><img src="/image/share/x.svg" alt="X"></a>
+                        <a id="share-fb" target="_blank" title="Facebookでシェア"><img src="/image/share/facebook.svg" alt="Facebook"></a>
+                        <a id="share-line" target="_blank" title="LINEでシェア"><img src="/image/share/line.svg" alt="LINE"></a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="bookmark-guide">
+            <div class="bookmark-title">🔗 このページはシェア用（編集不可・閲覧専用）です</div>
+            <div class="bookmark-actions">
+                <div class="share-url-wrapper">
+                    <input type="text" id="shareUrl" class="share-url" readonly
+                           value="@(!string.IsNullOrEmpty(Model.ShareId) ? $"/s/{Model.ShareId}" : "")">
+                </div>
+                <div class="share-icons">
+                    <a id="share-x" target="_blank" title="Xでシェア"><img src="/image/share/x.svg" alt="X"></a>
+                    <a id="share-fb" target="_blank" title="Facebookでシェア"><img src="/image/share/facebook.svg" alt="Facebook"></a>
+                    <a id="share-line" target="_blank" title="LINEでシェア"><img src="/image/share/line.svg" alt="LINE"></a>
+                </div>
+            </div>
+        </div>
+    }
+
+    <section id="region-sortable">
+        <div class="overall-right">
+            <div class="control-row">
+                @if (!Model.IsShare)
+                {
+                    <button id="toggleSortMode" class="reset-btn">🔀 並び替え</button>
+                    <button id="resetSort" class="reset-btn">🔄 リセット</button>
+                }
+            </div>
+            <div class="control-row">
+                <button id="openAllAccordion" class="reset-btn">📂 すべて開く</button>
+                <button id="closeAllAccordion" class="reset-btn">📁 すべて閉じる</button>
+                <button id="closeAllPref" class="reset-btn">📁 都道府県閉じ</button>
+                <button id="toggleClosed" class="reset-btn">🚫 閉鎖済み表示</button>
+            </div>
+            @if (!Model.IsShare)
+            {
+                <div class="control-row" style="margin-top:6px; align-items:center; gap:10px;">
+                    <span style="font-size:0.82em; color:#666;">⚙️ 閉鎖済みのデフォルト表示：</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="showClosedDefaultChk" @(Model.ShowClosedDefault ? "checked" : "")>
+                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                        <span class="toggle-label" id="showClosedDefaultLabel">@(Model.ShowClosedDefault ? "表示" : "非表示")</span>
+                    </label>
+                </div>
+            }
+        </div>
+
+        @foreach (var cb in Model.CenterBlocks.OrderBy(cb => cb.DisplayOrder))
+        {
+            <div class="accordion-region" data-center-id="@cb.CenterBlockId">
+                <div class="accordion-header open" data-region="@cb.CenterBlockId">
+                    <div class="accordion-left">
+                        <span class="drag-handle">≡</span>
+                        <span class="region-name">@cb.CenterBlockName</span>
+                    </div>
+                    <div class="region-center">
+                        <div class="region-text" id="region-@cb.CenterBlockId-text">0 / 0（0%）</div>
+                        <div class="region-bar">
+                            <div class="region-bar-fill" id="region-@cb.CenterBlockId-bar"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="accordion-content open pref-sortable" data-center-id="@cb.CenterBlockId">
+                    @{
+                        var prefs = Model.Prefectures
+                            .Where(p => p.CenterBlockId == cb.CenterBlockId)
+                            .OrderBy(p => p.DisplayOrder);
+                    }
+                    @foreach (var p in prefs)
+                    {
+                        <div class="pref-block" data-pref-id="@p.PrefId">
+                            <div class="pref-header open" data-pref="@p.PrefId">
+                                <div class="pref-left">
+                                    <span class="drag-handle">≡</span>
+                                    <span class="pref-arrow">▼</span>
+                                    @p.PrefName
+                                </div>
+                                <div class="pref-right">
+                                    <span id="pref-@p.PrefId-text">0 / 0</span>
+                                    <div class="pref-bar">
+                                        <div class="pref-bar-fill" id="pref-@p.PrefId-bar"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="pref-content open">
+                                <div class="room-list">
+                                    @foreach (var r in Model.Rooms.Where(r => r.PrefId == p.PrefId).OrderBy(r => r.IsClosed).ThenBy(r => r.DisplayOrder))
+                                    {
+                                        <div class="room-card @(r.IsClosed ? "closed" : "")" data-id="@r.RoomId" data-closed="@(r.IsClosed ? "1" : "0")">
+                                            @if (r.IsClosed) { <span class="closed-badge">閉鎖済み</span> }
+                                            <img src="@r.ImagePath" alt="@r.RoomName" class="room-image">
+                                            <div class="room-name">@r.RoomName</div>
+                                            @if (!string.IsNullOrEmpty(r.Remark)) { <div class="room-remark">@r.Remark</div> }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </section>
+
+    @if (!Model.IsShare)
+    {
+        <div id="dateModal">
+            <div id="dateModalContent">
+                <p>訪問日を選択してください</p>
+                <input type="date" id="modalDateInput">
+                <div>
+                    <button id="modalSaveBtn">保存</button>
+                    <button id="modalSaveWithoutDateBtn">日付なしで保存</button>
+                    <button id="modalDeleteBtn">削除</button>
+                    <button id="modalCancelBtn">キャンセル</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+    <script>
+        const updateShareLinks = (url) => {
+            const encoded = encodeURIComponent(url);
+            document.getElementById('share-x').href = `https://twitter.com/intent/tweet?url=${encoded}&text=けんけつノート%20全国スタンプ`;
+            document.getElementById('share-fb').href = `https://www.facebook.com/sharer/sharer.php?u=${encoded}`;
+            document.getElementById('share-line').href = `https://social-plugins.line.me/lineit/share?url=${encoded}`;
+        };
+        let sortMode = false;
+        document.addEventListener('DOMContentLoaded', () => {
+            const cards = document.querySelectorAll('.room-card');
+            const resetBtn = document.getElementById('reset-all');
+            const userId = '@Model.User.UserId';
+            let visitedData = {};
+            let currentCard = null;
+            const shareUrlInput = document.getElementById("shareUrl");
+
+            document.querySelectorAll('.share-url').forEach(input => {
+                input.addEventListener("click", async () => {
+                    await navigator.clipboard.writeText(input.value);
+                    showCopied(input);
+                    input.classList.add("copied");
+                    setTimeout(() => input.classList.remove("copied"), 1200);
+                });
+                input.addEventListener("focus", () => input.select());
+            });
+
+            const showCopied = (input) => {
+                const wrapper = input.closest(".share-url-wrapper");
+                if (!wrapper) return;
+                wrapper.querySelectorAll(".copy-toast").forEach(e => e.remove());
+                const toast = document.createElement("div");
+                toast.className = "copy-toast";
+                toast.textContent = "コピーしました";
+                wrapper.appendChild(toast);
+                requestAnimationFrame(() => toast.classList.add("show"));
+                setTimeout(() => { toast.classList.remove("show"); setTimeout(() => toast.remove(), 300); }, 1200);
+            };
+
+            const openAllAccordion = () => {
+                document.querySelectorAll('.accordion-header:not(.share-accordion .accordion-header)').forEach(h => {
+                    h.classList.add('open'); h.nextElementSibling?.classList.add('open');
+                });
+                document.querySelectorAll('.pref-header').forEach(h => { h.classList.add('open'); h.nextElementSibling?.classList.add('open'); });
+            };
+            const closeAllAccordion = () => {
+                document.querySelectorAll('.accordion-header:not(.share-accordion .accordion-header)').forEach(h => {
+                    h.classList.remove('open'); h.nextElementSibling?.classList.remove('open');
+                });
+                document.querySelectorAll('.pref-header').forEach(h => { h.classList.remove('open'); h.nextElementSibling?.classList.remove('open'); });
+            };
+            const closeAllPref = () => {
+                document.querySelectorAll('.pref-header').forEach(h => { h.classList.remove('open'); h.nextElementSibling?.classList.remove('open'); });
+            };
+
+            document.getElementById('openAllAccordion').addEventListener('click', openAllAccordion);
+            document.getElementById('closeAllAccordion').addEventListener('click', closeAllAccordion);
+            document.getElementById('closeAllPref').addEventListener('click', closeAllPref);
+
+            const toggleClosedBtn = document.getElementById('toggleClosed');
+            const showClosedDefault = document.body.dataset.showClosedDefault === '1';
+            let hideClosed = !showClosedDefault;
+            toggleClosedBtn.textContent = hideClosed ? '🚫 閉鎖済み表示' : '🚫 閉鎖済み非表示';
+            toggleClosedBtn.addEventListener('click', () => {
+                hideClosed = !hideClosed;
+                document.body.classList.toggle('hide-closed', hideClosed);
+                toggleClosedBtn.textContent = hideClosed ? '🚫 閉鎖済み表示' : '🚫 閉鎖済み非表示';
+                updateRegionProgress(); updatePrefProgress(); updateOverallProgress();
+            });
+
+            const showClosedDefaultChk = document.getElementById('showClosedDefaultChk');
+            if (showClosedDefaultChk) {
+                showClosedDefaultChk.addEventListener('change', async () => {
+                    const checked = showClosedDefaultChk.checked;
+                    document.getElementById('showClosedDefaultLabel').textContent = checked ? '表示' : '非表示';
+                    await fetch('/Stamp/SaveShowClosedDefault', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: `userId=@Model.User.UserId&showClosed=${checked}`
+                    });
+                });
+            }
+
+            const updateRegionProgress = () => {
+                const hideClosed = document.body.classList.contains('hide-closed');
+                document.querySelectorAll('.accordion-header[data-region]').forEach(header => {
+                    const region = header.dataset.region;
+                    const cards = header.nextElementSibling.querySelectorAll('.room-card');
+                    let total = 0, visited = 0;
+                    cards.forEach(c => { if (hideClosed && c.dataset.closed === '1') return; total++; if (visitedData[c.dataset.id]) visited++; });
+                    const percent = total === 0 ? 0 : Math.floor(visited / total * 100);
+                    document.getElementById(`region-${region}-text`).textContent = `${visited} / ${total}（${percent}%）`;
+                    document.getElementById(`region-${region}-bar`).style.width = percent + "%";
+                });
+            };
+            const updatePrefProgress = () => {
+                const hideClosed = document.body.classList.contains('hide-closed');
+                document.querySelectorAll('.pref-header[data-pref]').forEach(header => {
+                    const pref = header.dataset.pref;
+                    const cards = header.nextElementSibling.querySelectorAll('.room-card');
+                    let total = 0, visited = 0;
+                    cards.forEach(c => { if (hideClosed && c.dataset.closed === '1') return; total++; if (visitedData[c.dataset.id]) visited++; });
+                    const percent = total === 0 ? 0 : Math.floor(visited / total * 100);
+                    document.getElementById(`pref-${pref}-text`).textContent = `${visited} / ${total}`;
+                    document.getElementById(`pref-${pref}-bar`).style.width = percent + "%";
+                });
+            };
+            const updateOverallProgress = () => {
+                const hideClosed = document.body.classList.contains('hide-closed');
+                let total = 0, visited = 0;
+                cards.forEach(c => { if (hideClosed && c.dataset.closed === '1') return; total++; if (visitedData[c.dataset.id]) visited++; });
+                const percent = total === 0 ? 0 : Math.floor(visited / total * 100);
+                document.getElementById('overall-text').textContent = `${visited} / ${total}（${percent}%）`;
+                document.getElementById('overall-bar').style.width = percent + "%";
+            };
+
+            const loadDataFromServer = async () => {
+                const res = await fetch('/Stamp/GetAll?userId=@Model.User.UserId');
+                const list = await res.json();
+                visitedData = {};
+                list.forEach(x => { visitedData[x.roomId] = { date: x.date, angle: x.angle }; });
+                renderView();
+            };
+
+            const renderView = () => {
+                cards.forEach(card => {
+                    card.classList.remove('visited');
+                    const existing = card.querySelector('.stamp-mark');
+                    if (existing) existing.remove();
+                });
+                cards.forEach(card => {
+                    const id = card.dataset.id;
+                    if (visitedData[id]) {
+                        card.classList.add('visited');
+                        const angle = visitedData[id].angle;
+                        let date = visitedData[id].date ?? "";
+                        card.insertAdjacentHTML('beforeend', `
+                            <div class="stamp-mark">
+                                <div class="stamp-inner" style="transform: rotate(${angle}deg);">
+                                    <span class="stamp-title">済👣</span>
+                                    <div class="stamp-date-line"></div>
+                                    <span class="stamp-date">${date}</span>
+                                </div>
+                            </div>`);
+                    }
+                });
+                updateRegionProgress(); updatePrefProgress(); updateOverallProgress();
+            };
+
+            document.querySelectorAll('.accordion-header').forEach(h => {
+                h.addEventListener('click', () => { h.classList.toggle('open'); h.nextElementSibling.classList.toggle('open'); });
+            });
+            document.querySelectorAll('.pref-header').forEach(h => {
+                h.addEventListener('click', () => { h.classList.toggle('open'); h.nextElementSibling.classList.toggle('open'); });
+            });
+
+            loadDataFromServer();
+            if (shareUrlInput && shareUrlInput.value) {
+                shareUrlInput.value = location.origin + shareUrlInput.value;
+                updateShareLinks(shareUrlInput.value);
+            }
+
+@if (!Model.IsShare)
+{
+            <text>
+            const saveToServer = async (userId, id, date, angle) => {
+                await fetch('/Stamp/Save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `userId=${userId}&roomId=${id}&date=${date}&angle=${angle}`
+                });
+            };
+            const deleteFromServer = async (userId, id) => {
+                await fetch('/Stamp/DeleteStamp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `userId=${userId}&roomId=${id}`
+                });
+            };
+            const openModal = (card) => {
+                currentCard = card;
+                const id = card.dataset.id;
+                const modal = document.getElementById('dateModal');
+                const input = document.getElementById('modalDateInput');
+                const today = new Date();
+                const formatter = new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' });
+                input.value = visitedData[id]?.date ?? formatter.format(today).replaceAll('/', '-');
+                modal.style.display = 'flex';
+            };
+            const closeModal = () => { document.getElementById('dateModal').style.display = 'none'; };
+
+            cards.forEach(card => card.addEventListener('click', () => openModal(card)));
+
+            document.getElementById('modalSaveBtn').addEventListener('click', async () => {
+                const date = document.getElementById('modalDateInput').value;
+                const id = currentCard.dataset.id;
+                if (!visitedData[id]) visitedData[id] = { angle: (Math.random() * 30 - 15).toFixed(1) };
+                visitedData[id].date = date;
+                await saveToServer(userId, id, visitedData[id].date, visitedData[id].angle);
+                renderView(); closeModal();
+            });
+            document.getElementById('modalSaveWithoutDateBtn').addEventListener('click', async () => {
+                const id = currentCard.dataset.id;
+                if (!visitedData[id]) visitedData[id] = { angle: (Math.random() * 30 - 15).toFixed(1) };
+                visitedData[id].date = "";
+                await saveToServer(userId, id, visitedData[id].date, visitedData[id].angle);
+                renderView(); closeModal();
+            });
+            document.getElementById('modalDeleteBtn').addEventListener('click', async () => {
+                const id = currentCard.dataset.id;
+                delete visitedData[id];
+                await deleteFromServer(userId, id);
+                renderView(); closeModal();
+            });
+            document.getElementById('modalCancelBtn').addEventListener('click', () => closeModal());
+
+            resetBtn.addEventListener('click', async () => {
+                if (!confirm('本当に全データ削除しますか？')) return;
+                await fetch('/Stamp/Reset', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `userId=${userId}` });
+                visitedData = {};
+                renderView();
+            });
+
+            const urlInput = document.getElementById('pageUrl');
+            urlInput.value = location.href;
+
+            const createShareBtn = document.getElementById('createShareUrlBtn');
+            const delShareBtn = document.getElementById('deleteShareUrlBtn');
+
+            createShareBtn.addEventListener('click', async () => {
+                createShareBtn.disabled = true;
+                createShareBtn.textContent = '発行中...';
+                const res = await fetch('/Stamp/RegisterShareId', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `originalId=@Model.User.UserId`
+                });
+                const shareId = await res.text();
+                const url = `${location.origin}/s/${shareId}`;
+                shareUrlInput.value = url;
+                createShareBtn.disabled = true;
+                delShareBtn.disabled = false;
+                createShareBtn.textContent = 'シェア用URL発行';
+                updateShareLinks(url);
+            });
+
+            delShareBtn.addEventListener('click', async () => {
+                await fetch('/Stamp/DeleteShareId', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `shareId=@Model.ShareId`
+                });
+                shareUrlInput.value = "";
+                createShareBtn.disabled = false;
+                delShareBtn.disabled = true;
+                document.getElementById('share-x').removeAttribute('href');
+                document.getElementById('share-fb').removeAttribute('href');
+                document.getElementById('share-line').removeAttribute('href');
+            });
+
+            new Sortable(document.getElementById('region-sortable'), { animation: 150, handle: '.drag-handle' });
+            document.querySelectorAll('.pref-sortable').forEach(container => {
+                new Sortable(container, { animation: 150, handle: '.drag-handle' });
+            });
+
+            const toggleBtn = document.getElementById('toggleSortMode');
+            toggleBtn.onclick = async () => {
+                if (sortMode) await saveSortOrder();
+                sortMode = !sortMode;
+                document.body.classList.toggle('sort-mode', sortMode);
+                toggleBtn.textContent = sortMode ? '✅ 並び替え完了' : '🔀 並び替え';
+            };
+            const resetSortBtn = document.getElementById('resetSort');
+            resetSortBtn.onclick = async () => {
+                if (!confirm('並び順を初期状態に戻しますか？')) return;
+                await fetch('/Stamp/ResetDisplayOrder', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `userId=@Model.User.UserId`
+                });
+                location.reload();
+            };
+            const collectSortOrder = () => {
+                const regions = [];
+                document.querySelectorAll('.accordion-region').forEach((regionEl, regionIndex) => {
+                    const centerId = regionEl.dataset.centerId;
+                    const prefs = [];
+                    regionEl.querySelectorAll('.pref-block').forEach((prefEl, prefIndex) => {
+                        prefs.push({ prefId: prefEl.dataset.prefId, displayOrder: prefIndex });
+                    });
+                    regions.push({ centerBlockId: centerId, displayOrder: regionIndex, prefectures: prefs });
+                });
+                return regions;
+            };
+            const saveSortOrder = async () => {
+                const payload = { userId: '@Model.User.UserId', regions: collectSortOrder() };
+                await fetch('/Stamp/SaveDisplayOrder', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            };
+            </text>
+}
+        });
+    </script>
+
+@if (!Model.IsShare) {
+<div class="nav-overlay" id="navOverlay" onclick="closeNav()"></div>
+<nav class="nav-drawer" id="navDrawer">
+    <div class="nav-drawer-header">
+        <div class="nav-drawer-title">けんけつノート</div>
+        <button class="nav-drawer-close" onclick="closeNav()">×</button>
+    </div>
+    <a href="/u/@Model.User.UserId" class="nav-item"><span class="nav-item-icon">🏠</span>マイページ</a>
+    <a href="/u/@Model.User.UserId/stamp" class="nav-item nav-current"><span class="nav-item-icon">🗾</span>全国スタンプ</a>
+    <a href="/u/@Model.User.UserId/tracker" class="nav-item"><span class="nav-item-icon">📅</span>計画管理</a>
+    <a href="/u/@Model.User.UserId/manual" class="nav-item"><span class="nav-item-icon">📖</span>ヘルプ</a>
+</nav>
+<script>
+function openNav()  { document.getElementById('navDrawer').classList.add('open'); document.getElementById('navOverlay').classList.add('open'); }
+function closeNav() { document.getElementById('navDrawer').classList.remove('open'); document.getElementById('navOverlay').classList.remove('open'); }
+</script>
+}
+</body>
+</html>
