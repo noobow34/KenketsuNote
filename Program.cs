@@ -14,11 +14,6 @@ builder.Services.Configure<Microsoft.Extensions.WebEncoders.WebEncoderOptions>(o
 });
 builder.Services.AddDbContext<KenketsuNoteContext>();
 
-builder.WebHost.ConfigureKestrel(options =>
-{
-    options.ListenAnyIP(6002);
-});
-
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
