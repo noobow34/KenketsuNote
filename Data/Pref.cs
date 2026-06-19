@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace KenketsuNote.Data;
 
-[Table("pref", Schema = "ashiato")]
+[Table("pref")]
 public partial class Pref
 {
     [Key]

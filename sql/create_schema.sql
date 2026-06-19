@@ -4,28 +4,28 @@
 
 BEGIN;
 
-CREATE SCHEMA IF NOT EXISTS ashiato;
+CREATE SCHEMA IF NOT EXISTS kenketsu;
 
 -- ============================================================
 -- マスター系（全ユーザー共通）
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS ashiato.center_block (
+CREATE TABLE IF NOT EXISTS kenketsu.center_block (
     center_block_id SERIAL PRIMARY KEY,
     center_block_name VARCHAR(30),
     display_order INT
 );
 
-CREATE TABLE IF NOT EXISTS ashiato.pref (
+CREATE TABLE IF NOT EXISTS kenketsu.pref (
     pref_id SERIAL PRIMARY KEY,
     pref_name VARCHAR(30),
-    center_block INT NOT NULL REFERENCES ashiato.center_block(center_block_id),
+    center_block INT NOT NULL REFERENCES kenketsu.center_block(center_block_id),
     display_order INT
 );
 
-CREATE TABLE IF NOT EXISTS ashiato.kenketsu_room (
+CREATE TABLE IF NOT EXISTS kenketsu.kenketsu_room (
     room_id SERIAL PRIMARY KEY,
-    pref INT NOT NULL REFERENCES ashiato.pref(pref_id),
+    pref INT NOT NULL REFERENCES kenketsu.pref(pref_id),
     room_name VARCHAR(100) NOT NULL,
     display_order INT,
     image_path VARCHAR(100),
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS ashiato.kenketsu_room (
 -- ユーザー系
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS ashiato.users (
+CREATE TABLE IF NOT EXISTS kenketsu.users (
     user_id VARCHAR(10) PRIMARY KEY,
     registered_at TIMESTAMP,
     last_access_at TIMESTAMP,
@@ -45,32 +45,32 @@ CREATE TABLE IF NOT EXISTS ashiato.users (
     show_closed_default BOOLEAN NOT NULL DEFAULT FALSE
 );
 
-CREATE TABLE IF NOT EXISTS ashiato.visit_stamp (
+CREATE TABLE IF NOT EXISTS kenketsu.visit_stamp (
     stamp_id SERIAL PRIMARY KEY,
-    user_id VARCHAR(10) NOT NULL REFERENCES ashiato.users(user_id),
-    room_id INT NOT NULL REFERENCES ashiato.kenketsu_room(room_id),
+    user_id VARCHAR(10) NOT NULL REFERENCES kenketsu.users(user_id),
+    room_id INT NOT NULL REFERENCES kenketsu.kenketsu_room(room_id),
     visit_date DATE,
     angle NUMERIC(5,1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP(6),
     updated_at TIMESTAMP(6)
 );
 
-CREATE TABLE IF NOT EXISTS ashiato.share_mapping (
+CREATE TABLE IF NOT EXISTS kenketsu.share_mapping (
     share_id VARCHAR(10) PRIMARY KEY,
-    original_id VARCHAR(10) NOT NULL REFERENCES ashiato.users(user_id)
+    original_id VARCHAR(10) NOT NULL REFERENCES kenketsu.users(user_id)
 );
 
-CREATE TABLE IF NOT EXISTS ashiato.center_block_order (
+CREATE TABLE IF NOT EXISTS kenketsu.center_block_order (
     order_id SERIAL PRIMARY KEY,
-    center_block_id INT NOT NULL REFERENCES ashiato.center_block(center_block_id),
-    user_id VARCHAR(10) NOT NULL REFERENCES ashiato.users(user_id),
+    center_block_id INT NOT NULL REFERENCES kenketsu.center_block(center_block_id),
+    user_id VARCHAR(10) NOT NULL REFERENCES kenketsu.users(user_id),
     display_order INT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS ashiato.pref_order (
+CREATE TABLE IF NOT EXISTS kenketsu.pref_order (
     order_id SERIAL PRIMARY KEY,
-    pref_id INT NOT NULL REFERENCES ashiato.pref(pref_id),
-    user_id VARCHAR(10) NOT NULL REFERENCES ashiato.users(user_id),
+    pref_id INT NOT NULL REFERENCES kenketsu.pref(pref_id),
+    user_id VARCHAR(10) NOT NULL REFERENCES kenketsu.users(user_id),
     display_order INT NOT NULL
 );
 
@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS ashiato.pref_order (
 -- トラッカー系
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS ashiato.kenketsu_record (
+CREATE TABLE IF NOT EXISTS kenketsu.kenketsu_record (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(10) NOT NULL,
     donation_date DATE NOT NULL,
@@ -92,11 +92,11 @@ CREATE TABLE IF NOT EXISTS ashiato.kenketsu_record (
 );
 
 CREATE INDEX IF NOT EXISTS idx_kenketsu_record_user_id
-    ON ashiato.kenketsu_record (user_id);
+    ON kenketsu.kenketsu_record (user_id);
 CREATE INDEX IF NOT EXISTS idx_kenketsu_record_user_date
-    ON ashiato.kenketsu_record (user_id, donation_date);
+    ON kenketsu.kenketsu_record (user_id, donation_date);
 
-CREATE TABLE IF NOT EXISTS ashiato.kenketsu_restriction (
+CREATE TABLE IF NOT EXISTS kenketsu.kenketsu_restriction (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(10) NOT NULL,
     start_date DATE NOT NULL,
@@ -107,6 +107,6 @@ CREATE TABLE IF NOT EXISTS ashiato.kenketsu_restriction (
 );
 
 CREATE INDEX IF NOT EXISTS idx_kenketsu_restriction_user_id
-    ON ashiato.kenketsu_restriction (user_id);
+    ON kenketsu.kenketsu_restriction (user_id);
 
 COMMIT;

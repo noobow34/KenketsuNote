@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace KenketsuNote.Data;
 
-[Table("users", Schema = "ashiato")]
+[Table("users")]
 public partial class User
 {
     [Key]

@@ -31,6 +31,8 @@ public partial class KenketsuNoteContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasDefaultSchema("kenketsu");
+
         modelBuilder.Entity<CenterBlock>(entity =>
         {
             entity.HasKey(e => e.CenterBlockId).HasName("center_block_pkey");

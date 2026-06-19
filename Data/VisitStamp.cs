@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KenketsuNote.Data;
 
-[Table("visit_stamp", Schema = "ashiato")]
+[Table("visit_stamp")]
 public partial class VisitStamp
 {
     [Key]
