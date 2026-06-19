@@ -169,7 +169,7 @@
         .pref-filter::-webkit-scrollbar-thumb { background:#ddd; border-radius:2px; }
         .pref-filter-btn { flex-shrink:0; padding:4px 10px; border:1.5px solid #ddd; border-radius:14px; background:white; font-size:0.75rem; cursor:pointer; white-space:nowrap; color:#555; }
         .pref-filter-btn.active { border-color:#e74c3c; background:#fff0f0; color:#c0392b; font-weight:700; }
-        .room-list { max-height:300px; overflow-y:auto; border:1px solid #f0f0f0; border-radius:8px; }
+        .room-list { height:300px; overflow-y:auto; border:1px solid #f0f0f0; border-radius:8px; }
         .room-list-item { padding:9px 12px; font-size:0.85rem; cursor:pointer; border-bottom:1px solid #f5f5f5; display:flex; align-items:center; gap:8px; }
         .room-list-item:last-child { border-bottom:none; }
         .room-list-item:hover { background:#fff5f5; }
@@ -556,22 +556,30 @@ function loadRecentRecords() {
     fetch('/Tracker/GetRecentRecords?userId=' + USER_ID).then(r => r.json()).then(list => {
         var el = document.getElementById('recentList');
         if (!list.length) { el.innerHTML = '<div class="record-empty">まだ記録がありません</div>'; return; }
-        el.innerHTML = list.map(function(r) {
+        var fragments = list.map(function(r) {
             var isWhole = IS_WHOLE(r.donationType);
             var isPlan  = r.recordType === 'plan';
             var color   = isWhole ? '#c0392b' : '#2980b9';
             var icon    = isPlan ? '▷' : '●';
-            return '<div class="record-list-item">' +
-                '<span class="record-list-date">' + esc(r.donationDate) + '</span>' +
+            var dispDate = r.donationDate.replace(/-/g, '/');
+            var div = document.createElement('div');
+            div.className = 'record-list-item';
+            div.style.cursor = 'pointer';
+            div.innerHTML =
+                '<span class="record-list-date">' + esc(dispDate) + '</span>' +
                 '<span class="record-list-type-wrap">' +
                     '<span class="record-list-type" style="color:' + color + ';">' + icon + ' ' + esc(TYPE_LABEL_LONG[r.donationType]) + (isPlan ? '（予定）' : '') + '</span>' +
                     '<span class="record-list-icons">' +
                         (r.roomName ? '<span class="rec-icon">🏥<span class="rec-icon-tip">' + esc(r.roomName) + '</span></span>' : '') +
                         (r.notes    ? '<span class="rec-icon">📝<span class="rec-icon-tip">' + esc(r.notes)    + '</span></span>' : '') +
                     '</span>' +
-                '</span>' +
-                '</div>';
-        }).join('');
+                '</span>';
+            div.querySelectorAll('.rec-icon').forEach(function(ic) { ic.addEventListener('click', function(e) { e.stopPropagation(); }); });
+            (function(rec) { div.addEventListener('click', function() { openDetail(rec); }); })(r);
+            return div;
+        });
+        el.innerHTML = '';
+        fragments.forEach(function(d) { el.appendChild(d); });
     });
 }
 function renderRestrictionList(restrictions) {

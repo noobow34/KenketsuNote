@@ -201,7 +201,7 @@ public class TrackerController : Controller
         return Json(records.Select(r => new
         {
             r.Id,
-            DonationDate = r.DonationDate.ToString("yyyy/MM/dd"),
+            DonationDate = r.DonationDate.ToString("yyyy-MM-dd"),
             r.DonationType,
             r.RecordType,
             r.Notes,
