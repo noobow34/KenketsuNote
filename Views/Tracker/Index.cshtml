@@ -101,8 +101,12 @@
         .record-list-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f5f5f5; font-size: 0.82rem; }
         .record-list-item:last-child { border-bottom: none; }
         .record-list-date { color: #888; width: 76px; flex-shrink: 0; }
-        .record-list-type { font-weight: 700; flex: 1; }
-        .record-list-notes { color: #aaa; font-size: 0.75rem; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .record-list-type { font-weight: 700; }
+        .record-list-type-wrap { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+        .record-list-icons { display: flex; gap: 4px; flex-shrink: 0; }
+        .rec-icon { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #f0f0f0; font-size: 0.75rem; cursor: default; }
+        .rec-icon:hover .rec-icon-tip { display: block; }
+        .rec-icon-tip { display: none; position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); background: #333; color: #fff; font-size: 0.72rem; white-space: nowrap; padding: 5px 8px; border-radius: 6px; z-index: 100; line-height: 1.4; pointer-events: none; }
         .record-empty { color: #aaa; font-size: 0.82rem; text-align: center; padding: 12px 0; }
         .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; align-items: center; justify-content: center; }
         .modal-overlay.show { display: flex; }
@@ -559,8 +563,13 @@ function loadRecentRecords() {
             var icon    = isPlan ? '▷' : '●';
             return '<div class="record-list-item">' +
                 '<span class="record-list-date">' + esc(r.donationDate) + '</span>' +
-                '<span class="record-list-type" style="color:' + color + ';">' + icon + ' ' + esc(TYPE_LABEL_LONG[r.donationType]) + (isPlan ? '（予定）' : '') + '</span>' +
-                '<span class="record-list-notes">' + esc(r.notes || '') + '</span>' +
+                '<span class="record-list-type-wrap">' +
+                    '<span class="record-list-type" style="color:' + color + ';">' + icon + ' ' + esc(TYPE_LABEL_LONG[r.donationType]) + (isPlan ? '（予定）' : '') + '</span>' +
+                    '<span class="record-list-icons">' +
+                        (r.roomName ? '<span class="rec-icon">🏥<span class="rec-icon-tip">' + esc(r.roomName) + '</span></span>' : '') +
+                        (r.notes    ? '<span class="rec-icon">📝<span class="rec-icon-tip">' + esc(r.notes)    + '</span></span>' : '') +
+                    '</span>' +
+                '</span>' +
                 '</div>';
         }).join('');
     });

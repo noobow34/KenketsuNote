@@ -205,6 +205,10 @@ public class TrackerController : Controller
             r.DonationType,
             r.RecordType,
             r.Notes,
+            r.RoomId,
+            RoomName = r.RoomId.HasValue
+                ? (MasterData.Rooms.FirstOrDefault(rm => rm.RoomId == r.RoomId)?.RoomName ?? "")
+                : "",
         }));
     }
 
