@@ -36,7 +36,10 @@ public class KenketsuLimitService
 
         if (restrictions != null)
         {
-            var hit = restrictions.FirstOrDefault(r => EffectiveContains(r, targetDate, others));
+            // 実効開始日の判定は excludeId を除かない全記録で行う
+            // （編集対象の実績が制限開始日と同日の場合でも正しく翌日開始と判断するため）
+            var allForRestriction = records.ToList();
+            var hit = restrictions.FirstOrDefault(r => EffectiveContains(r, targetDate, allForRestriction));
             if (hit != null)
                 return ValidationResult.Fail(
                     $"手動制限期間中です（{hit.StartDate:yyyy/MM/dd}〜{hit.EndDate:yyyy/MM/dd}）" +
