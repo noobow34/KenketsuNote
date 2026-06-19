@@ -1,5 +1,4 @@
 using KenketsuNote.Infrastructure;
-using KenketsuNote;
 using KenketsuNote.Data;
 
 string connectionString = Environment.GetEnvironmentVariable("KENKETSUNOTE_CONNECTION_STRING") ?? "";
