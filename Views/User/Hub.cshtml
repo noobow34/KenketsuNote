@@ -22,9 +22,9 @@
             padding: 0 16px;
             text-align: center;
         }
-        .hub-title {
-            color: #b71c1c;
-            font-size: 1.8em;
+        .hub-title img {
+            height: 200px;
+            width: auto;
             margin-bottom: 4px;
         }
         .hub-username {
@@ -120,7 +120,7 @@
 </head>
 <body>
 <div class="hub-wrap">
-    <h1 class="hub-title">けんけつノート</h1>
+    <h1 class="hub-title"><img src="/image/kari-logo.png" alt="けんけつノート"></h1>
     @if (!string.IsNullOrEmpty(userName))
     {
         <p class="hub-username">@userName さん</p>

@@ -224,8 +224,9 @@
         .toggle-label { font-size: 0.82em; color: #555; min-width: 2.5em; }
         /* ── ナビゲーション ── */
         .nav-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid #ffebeb; }
-        .nav-brand { font-size: 1rem; font-weight: 700; color: #b71c1c; }
-        .nav-page-subtitle { font-size: 0.82rem; color: #888; margin-top: 1px; }
+        .nav-brand { display: flex; align-items: center; gap: 10px; }
+        .nav-brand img { height: 40px; width: auto; display: block; }
+        .nav-page-subtitle { font-size: 0.82rem; color: #888; }
         .nav-hamburger { background: none; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 6px 10px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
         .nav-hamburger span { display: block; width: 20px; height: 2px; background: #555; border-radius: 2px; }
         .nav-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 2000; }
@@ -247,9 +248,9 @@
       data-show-closed-default="@(Model.ShowClosedDefault ? "1" : "0")">
 
     <div class="nav-topbar">
-        <div>
-            <div class="nav-brand">けんけつノート</div>
-            <div class="nav-page-subtitle">全国スタンプ@(string.IsNullOrEmpty(Model.User.UserName) ? "" : $"（{Model.User.UserName} さん）")</div>
+        <div class="nav-brand">
+            <img src="/image/kari-logo2.png" alt="けんけつノート">
+            <span class="nav-page-subtitle">全国スタンプ@(string.IsNullOrEmpty(Model.User.UserName) ? "" : $"（{Model.User.UserName} さん）")</span>
         </div>
         @if (!Model.IsShare) {
             <button class="nav-hamburger" onclick="openNav()" aria-label="メニュー"><span></span><span></span><span></span></button>
