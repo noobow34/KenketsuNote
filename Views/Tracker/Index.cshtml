@@ -65,13 +65,13 @@
         .cal-cell.restriction-day   { background: linear-gradient(135deg, #fdf0ff 0%, #f8e8ff 100%); }
         .cal-cell.restriction-day:hover   { background: #f0d8ff; }
         .cell-indicators { position: absolute; top: 2px; right: 2px; display: flex; flex-direction: column; gap: 1px; align-items: flex-end; }
-        .ind-dot { width: 5px; height: 5px; border-radius: 50%; display: inline-block; }
-        .ind-whole-interval { background: #e74c3c; }
-        .ind-comp-interval  { background: #3498db; }
-        .ind-star { font-size: 7px; line-height: 1; display: inline-block; font-weight: 900; }
+        .ind-dot  { font-size: 14px; line-height: 1; display: inline-block; font-weight: 900; }
+        .ind-whole-interval { color: #e74c3c; }
+        .ind-comp-interval  { color: #3498db; }
+        .ind-star { font-size: 14px; line-height: 1; display: inline-block; font-weight: 900; }
         .ind-whole-limit { color: #e74c3c; }
         .ind-comp-limit  { color: #3498db; }
-        .ind-restriction { background: #9b59b6; }
+        .ind-restriction { color: #9b59b6; }
         .day-num { font-size: 0.78rem; font-weight: 700; color: #333; margin-bottom: 2px; }
         .cal-cell.other-month .day-num { color: #ccc; }
         .col-sun .day-num { color: #e74c3c !important; }
@@ -280,15 +280,15 @@
         <div style="width:100%;"></div>
         <div class="legend-item" style="gap:6px;">
             <span style="display:inline-flex;flex-direction:column;gap:2px;">
-                <span style="display:inline-flex;align-items:center;gap:3px;font-size:0.7rem;"><span style="width:5px;height:5px;border-radius:50%;background:#e74c3c;display:inline-block;"></span>全血</span>
-                <span style="display:inline-flex;align-items:center;gap:3px;font-size:0.7rem;"><span style="width:5px;height:5px;border-radius:50%;background:#3498db;display:inline-block;"></span>成分</span>
+                <span style="display:inline-flex;align-items:center;gap:3px;font-size:0.7rem;"><span style="color:#e74c3c;font-weight:900;font-size:14px;">×</span>全血</span>
+                <span style="display:inline-flex;align-items:center;gap:3px;font-size:0.7rem;"><span style="color:#3498db;font-weight:900;font-size:14px;">×</span>成分</span>
             </span>
             <span style="color:#888;font-size:0.7rem;">= インターバルによる制限</span>
         </div>
         <div class="legend-item" style="gap:6px;">
             <span style="display:inline-flex;flex-direction:column;gap:2px;">
-                <span style="display:inline-flex;align-items:center;gap:3px;font-size:0.7rem;"><span style="color:#e74c3c;font-weight:900;font-size:8px;">＊</span>全血</span>
-                <span style="display:inline-flex;align-items:center;gap:3px;font-size:0.7rem;"><span style="color:#3498db;font-weight:900;font-size:8px;">＊</span>成分</span>
+                <span style="display:inline-flex;align-items:center;gap:3px;font-size:0.7rem;"><span style="color:#e74c3c;font-weight:900;font-size:14px;">！</span>全血</span>
+                <span style="display:inline-flex;align-items:center;gap:3px;font-size:0.7rem;"><span style="color:#3498db;font-weight:900;font-size:14px;">！</span>成分</span>
             </span>
             <span style="color:#888;font-size:0.7rem;">= 年間上限による制限</span>
         </div>
@@ -638,12 +638,12 @@ function renderCalendar(y, m) {
                 var indWrap = document.createElement('div');
                 indWrap.className = 'cell-indicators';
                 if (isRestricted) {
-                    var dRest = document.createElement('span'); dRest.className = 'ind-dot ind-restriction'; dRest.title = '手動制限'; indWrap.appendChild(dRest);
+                    var dRest = document.createElement('span'); dRest.className = 'ind-dot ind-restriction'; dRest.textContent = '×'; dRest.title = '手動制限'; indWrap.appendChild(dRest);
                 } else {
-                    if (wholeByInterval) { var dWI = document.createElement('span'); dWI.className = 'ind-dot ind-whole-interval'; indWrap.appendChild(dWI); }
-                    else if (wholeByLimit) { var dWL = document.createElement('span'); dWL.className = 'ind-star ind-whole-limit'; dWL.textContent = '＊'; indWrap.appendChild(dWL); }
-                    if (compByInterval) { var dCI = document.createElement('span'); dCI.className = 'ind-dot ind-comp-interval'; indWrap.appendChild(dCI); }
-                    else if (compByLimit) { var dCL = document.createElement('span'); dCL.className = 'ind-star ind-comp-limit'; dCL.textContent = '＊'; indWrap.appendChild(dCL); }
+                    if (wholeByInterval) { var dWI = document.createElement('span'); dWI.className = 'ind-dot ind-whole-interval'; dWI.textContent = '×'; indWrap.appendChild(dWI); }
+                    else if (wholeByLimit) { var dWL = document.createElement('span'); dWL.className = 'ind-star ind-whole-limit'; dWL.textContent = '！'; indWrap.appendChild(dWL); }
+                    if (compByInterval) { var dCI = document.createElement('span'); dCI.className = 'ind-dot ind-comp-interval'; dCI.textContent = '×'; indWrap.appendChild(dCI); }
+                    else if (compByLimit) { var dCL = document.createElement('span'); dCL.className = 'ind-star ind-comp-limit'; dCL.textContent = '！'; indWrap.appendChild(dCL); }
                 }
                 td.appendChild(indWrap);
             }
