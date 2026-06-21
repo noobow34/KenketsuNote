@@ -337,7 +337,7 @@
             <button id="addTypeTabActual" onclick="setAddType('actual')" style="flex:1;padding:7px 0;border:none;background:white;color:#888;font-size:0.9rem;cursor:pointer;">✅ 実績</button>
         </div>
         <div class="form-group-sm"><label class="form-label-sm">日付</label><input type="text" id="planDateDisp" class="form-ctrl" readonly><input type="hidden" id="planDateRaw"></div>
-        <div class="form-group-sm"><label class="form-label-sm">種別</label><select id="planType" class="form-ctrl"><option value="whole_400">全血 400ml</option><option value="whole_200">全血 200ml</option><option value="plasma">血漿成分</option><option value="platelet">血小板成分</option></select></div>
+        <div class="form-group-sm"><label class="form-label-sm">種別</label><select id="planType" class="form-ctrl"><option value="plasma">血漿成分</option><option value="platelet">血小板成分</option><option value="whole_400">全血 400ml</option><option value="whole_200">全血 200ml</option></select></div>
         <div class="form-group-sm"><label class="form-label-sm">献血ルーム（任意）</label><button type="button" class="room-select-btn" onclick="openRoomPicker('plan')"><span class="room-name" id="planRoomName">選択なし</span><span class="room-clear" onclick="clearRoom('plan');event.stopPropagation()">✕</span></button><input type="hidden" id="planRoomId"></div>
         <div class="form-group-sm"><label class="form-label-sm">メモ（任意）</label><input type="text" id="planNotes" class="form-ctrl" maxlength="200" placeholder="お気づきの点など"></div>
         <div class="form-group-sm stamp-toggle-row" id="planStampRow" style="display:none;">
@@ -361,7 +361,7 @@
         <button class="modal-close" onclick="closeModal('modalConvert')">×</button>
         <div class="modal-title"><i class="fa-solid fa-check-circle" style="margin-right:8px; color:#27ae60;"></i>実績に変換</div>
         <input type="hidden" id="convertId">
-        <div class="form-group-sm"><label class="form-label-sm">種別（変更可）</label><select id="convertType" class="form-ctrl"><option value="whole_400">全血 400ml</option><option value="whole_200">全血 200ml</option><option value="plasma">血漿成分</option><option value="platelet">血小板成分</option></select></div>
+        <div class="form-group-sm"><label class="form-label-sm">種別（変更可）</label><select id="convertType" class="form-ctrl"><option value="plasma">血漿成分</option><option value="platelet">血小板成分</option><option value="whole_400">全血 400ml</option><option value="whole_200">全血 200ml</option></select></div>
         <div class="form-group-sm"><label class="form-label-sm">献血ルーム（任意）</label><button type="button" class="room-select-btn" onclick="openRoomPicker('convert')"><span class="room-name" id="convertRoomName">選択なし</span><span class="room-clear" onclick="clearRoom('convert');event.stopPropagation()">✕</span></button><input type="hidden" id="convertRoomId"></div>
         <div class="form-group-sm"><label class="form-label-sm">メモ（任意）</label><input type="text" id="convertNotes" class="form-ctrl" maxlength="200"></div>
         <div class="form-group-sm stamp-toggle-row" id="convertStampRow" style="display:none;">
@@ -377,7 +377,7 @@
         <div class="modal-title"><i class="fa-solid fa-edit" style="margin-right:8px; color:#e67e22;"></i>編集</div>
         <input type="hidden" id="editId">
         <div class="form-group-sm"><label class="form-label-sm">日付</label><input type="date" id="editDate" class="form-ctrl"></div>
-        <div class="form-group-sm"><label class="form-label-sm">種別</label><select id="editType" class="form-ctrl"><option value="whole_400">全血 400ml</option><option value="whole_200">全血 200ml</option><option value="plasma">血漿成分</option><option value="platelet">血小板成分</option></select></div>
+        <div class="form-group-sm"><label class="form-label-sm">種別</label><select id="editType" class="form-ctrl"><option value="plasma">血漿成分</option><option value="platelet">血小板成分</option><option value="whole_400">全血 400ml</option><option value="whole_200">全血 200ml</option></select></div>
         <div class="form-group-sm"><label class="form-label-sm">献血ルーム（任意）</label><button type="button" class="room-select-btn" onclick="openRoomPicker('edit')"><span class="room-name" id="editRoomName">選択なし</span><span class="room-clear" onclick="clearRoom('edit');event.stopPropagation()">✕</span></button><input type="hidden" id="editRoomId"></div>
         <div class="form-group-sm"><label class="form-label-sm">メモ（任意）</label><input type="text" id="editNotes" class="form-ctrl" maxlength="200"></div>
         <div class="modal-footer-btns"><button class="btn-gray" onclick="closeModal('modalEdit')">キャンセル</button><button class="btn-orange" onclick="saveEdit()">保存</button></div>
@@ -839,7 +839,7 @@ function openAddPlanModal(dateStr) {
     var p = dateStr.split('-');
     document.getElementById('planDateDisp').value = p[0] + '年' + parseInt(p[1]) + '月' + parseInt(p[2]) + '日';
     document.getElementById('planDateRaw').value = dateStr;
-    document.getElementById('planType').value = 'whole_400';
+    document.getElementById('planType').value = 'plasma';
     document.getElementById('planNotes').value = '';
     clearRoom('plan');
     setAddType('plan');
