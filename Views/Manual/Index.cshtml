@@ -178,11 +178,11 @@ tr:nth-child(even) td{background:#fff8f8;}
 <div class="tbl-wrap">
 <table>
     <tr><th>背景色</th><th>意味</th></tr>
-    <tr><td>ピンク</td><td>全血・成分ともに不可</td></tr>
-    <tr><td>薄黄</td><td>全血のみ不可（成分は可）</td></tr>
-    <tr><td>薄青</td><td>成分のみ不可（全血は可）</td></tr>
-    <tr><td>薄紫</td><td>手動制限期間</td></tr>
-    <tr><td>白</td><td>制限なし</td></tr>
+    <tr><td style="background:linear-gradient(135deg,#fff0f3,#ffe8ed);">　</td><td>全血・成分ともに不可</td></tr>
+    <tr><td style="background:linear-gradient(135deg,#fffff0,#fffde0);">　</td><td>全血のみ不可（成分は可）</td></tr>
+    <tr><td style="background:linear-gradient(135deg,#f0f8ff,#e8f4fd);">　</td><td>成分のみ不可（全血は可）</td></tr>
+    <tr><td style="background:linear-gradient(135deg,#fdf0ff,#f8e8ff);">　</td><td>手動制限期間</td></tr>
+    <tr><td style="background:#fff;border:1px solid #eee;">　</td><td>制限なし</td></tr>
 </table>
 </div>
 <p>複数の制限が重なる場合は優先度の高いものが表示されます（手動制限 &gt; 全血成分不可 &gt; 片方不可）。</p>
@@ -190,12 +190,12 @@ tr:nth-child(even) td{background:#fff8f8;}
 <h4>制限マーク（セル右上の小さいしるし）</h4>
 <div class="tbl-wrap">
 <table>
-    <tr><th>しるし</th><th>色</th><th>意味</th></tr>
-    <tr><td>●</td><td>赤</td><td>全血不可（待機期間による）</td></tr>
-    <tr><td>＊</td><td>赤</td><td>全血不可（年間上限による）</td></tr>
-    <tr><td>●</td><td>青</td><td>成分不可（待機期間による）</td></tr>
-    <tr><td>＊</td><td>青</td><td>成分不可（年間上限による）</td></tr>
-    <tr><td>●</td><td>紫</td><td>手動制限（全血・成分両方不可）</td></tr>
+    <tr><th>しるし</th><th>意味</th></tr>
+    <tr><td><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#e74c3c;vertical-align:middle;"></span></td><td>全血不可（待機期間による）</td></tr>
+    <tr><td><span style="color:#e74c3c;font-weight:700;">＊</span></td><td>全血不可（年間上限による）</td></tr>
+    <tr><td><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#3498db;vertical-align:middle;"></span></td><td>成分不可（待機期間による）</td></tr>
+    <tr><td><span style="color:#3498db;font-weight:700;">＊</span></td><td>成分不可（年間上限による）</td></tr>
+    <tr><td><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#9b59b6;vertical-align:middle;"></span></td><td>手動制限（全血・成分両方不可）</td></tr>
 </table>
 </div>
 <p>待機期間と年間上限が同時に該当する場合は、より直接的な理由の待機期間（●）を表示します。</p>
