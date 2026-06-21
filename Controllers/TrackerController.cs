@@ -18,7 +18,7 @@ public class TrackerController : Controller
     }
 
     private static KenketsuLimitService LimitFor(string? gender)
-        => new(KenketsuLimitService.WholeMaxMlForGender(gender));
+        => new(KenketsuLimitService.WholeMaxMlForGender(gender), gender);
 
     private string? GetGender(string userId)
         => _db.Users.AsNoTracking().Where(u => u.UserId == userId).Select(u => u.Gender).FirstOrDefault();

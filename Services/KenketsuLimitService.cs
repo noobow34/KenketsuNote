@@ -11,17 +11,27 @@ public class KenketsuLimitService
     private const int RollingWeeks      = 52;
     private const int ComponentMaxCount = 24;
 
-    private readonly int _wholeMaxMl;
+    // 200ml全血後：男女共通でいずれの献血も4週後
+    private const int AnyAfter200Days             = 4  * 7;  // 28日
 
-    public KenketsuLimitService(int wholeMaxMl = 1200)
+    // 400ml全血後
+    private const int WholeAfterWhole400MaleDays   = 12 * 7;  // 84日（男性）
+    private const int WholeAfterWhole400FemaleDays = 16 * 7;  // 112日（女性 → 400ml）
+    private const int ComponentAfterWhole400Days   = 8  * 7;  // 56日（男女共通）
+
+    // 成分後
+    private const int AnyAfterComponentDays = 2 * 7;  // 14日
+
+    private readonly int     _wholeMaxMl;
+    private readonly string? _gender;
+
+    public KenketsuLimitService(int wholeMaxMl = 1200, string? gender = null)
     {
         _wholeMaxMl = wholeMaxMl;
+        _gender     = gender;
     }
 
     public static int WholeMaxMlForGender(string? gender) => gender == "female" ? 800 : 1200;
-    private const int WholeAfterWholeDays     = 12 * 7;  // 84日
-    private const int ComponentAfterWholeDays = 8  * 7;  // 56日
-    private const int AnyAfterComponentDays   = 2  * 7;  // 14日
 
     // ── 公開メソッド ──────────────────────────────────────────────
 
@@ -216,10 +226,19 @@ public class KenketsuLimitService
                 int days = d.DayNumber - last.DonationDate.DayNumber;
 
                 bool wholeBlocked, compBlocked;
-                if (last.IsWhole)
+                if (last.DonationType == "whole_200")
                 {
-                    wholeBlocked = days < WholeAfterWholeDays;
-                    compBlocked  = days < ComponentAfterWholeDays;
+                    wholeBlocked = days < AnyAfter200Days;
+                    compBlocked  = days < AnyAfter200Days;
+                }
+                else if (last.IsWhole) // whole_400
+                {
+                    // 女性は全血（400ml代表）を16週でブロック、男性は12週
+                    int wholeRequired = _gender == "female"
+                        ? WholeAfterWhole400FemaleDays
+                        : WholeAfterWhole400MaleDays;
+                    wholeBlocked = days < wholeRequired;
+                    compBlocked  = days < ComponentAfterWhole400Days;
                 }
                 else
                 {
@@ -311,7 +330,7 @@ public class KenketsuLimitService
         return date >= effectiveStart && date <= restriction.EndDate;
     }
 
-    private static string? CheckInterval(
+    private string? CheckInterval(
         DateOnly targetDate,
         string donationType,
         IList<KenketsuRecord> others)
@@ -323,14 +342,35 @@ public class KenketsuLimitService
 
         int daysSince = targetDate.DayNumber - last.DonationDate.DayNumber;
 
-        if (last.IsWhole)
+        if (last.DonationType == "whole_200")
         {
-            int required = donationType is "whole_200" or "whole_400"
-                ? WholeAfterWholeDays : ComponentAfterWholeDays;
+            // 200ml後：男女共通でいずれも4週後
+            if (daysSince < AnyAfter200Days)
+            {
+                var earliest = last.DonationDate.AddDays(AnyAfter200Days);
+                return $"直前の200ml全血献血（{last.DonationDate:yyyy/MM/dd}）から" +
+                       $"4週間後の {earliest:yyyy/MM/dd} 以降に可能です。";
+            }
+        }
+        else if (last.DonationType == "whole_400")
+        {
+            int required;
+            if (donationType is "whole_200" or "whole_400")
+            {
+                // 女性が400mlを狙う場合のみ16週、それ以外（男性 or 200ml）は12週
+                required = (donationType == "whole_400" && _gender == "female")
+                    ? WholeAfterWhole400FemaleDays
+                    : WholeAfterWhole400MaleDays;
+            }
+            else
+            {
+                required = ComponentAfterWhole400Days;
+            }
+
             if (daysSince < required)
             {
                 var earliest = last.DonationDate.AddDays(required);
-                return $"直前の全血献血（{last.DonationDate:yyyy/MM/dd}）から" +
+                return $"直前の400ml全血献血（{last.DonationDate:yyyy/MM/dd}）から" +
                        $"{required / 7}週間後の {earliest:yyyy/MM/dd} 以降に可能です。";
             }
         }
