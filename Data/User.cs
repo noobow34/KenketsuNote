@@ -28,4 +28,7 @@ public partial class User
     [Column("gender")]
     [StringLength(6)]
     public string? Gender { get; set; }
+
+    [Column("migrated_from_ashiato")]
+    public bool MigratedFromAshiato { get; set; } = false;
 }

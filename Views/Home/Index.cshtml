@@ -470,7 +470,7 @@
                 if (d.exists) {
                     msg.textContent = '✓ ユーザーが見つかりました。マイページに移動します…';
                     msg.className   = 'migrate-msg ok';
-                    setTimeout(() => { window.location.href = '/u/' + encodeURIComponent(id); }, 800);
+                    setTimeout(() => { window.location.href = '/u/' + encodeURIComponent(id) + '/stamp?from=ashiato'; }, 800);
                 } else {
                     msg.textContent = 'このIDのユーザーは見つかりませんでした。IDをご確認ください。';
                     msg.className   = 'migrate-msg err';

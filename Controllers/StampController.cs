@@ -16,8 +16,18 @@ public class StampController : Controller
     }
 
     [Route("u/{id}/stamp")]
-    public IActionResult Index(string id)
+    public IActionResult Index(string id, [FromQuery(Name = "from")] string? from)
     {
+        if (from == "ashiato")
+        {
+            var u = _db.Users.Find(id);
+            if (u != null && !u.MigratedFromAshiato)
+            {
+                u.MigratedFromAshiato = true;
+                _db.SaveChanges();
+            }
+            return Redirect($"/u/{id}/stamp");
+        }
         return StampPage(id, false);
     }
 
