@@ -547,13 +547,14 @@ function loadHolidaysForYear(y) {
         .catch(() => {});
 }
 function loadMonth(y, m) {
-    loadHolidaysForYear(y).then(function() {
-        fetch('/Tracker/GetMonthData?userId=' + USER_ID + '&year=' + y + '&month=' + m)
-            .then(r => r.json()).then(data => {
-                monthRecords = data.records; intervalRanges = data.intervalRanges || [];
-                limitRanges = data.limitRanges || []; restrictionRanges = data.restrictionRanges || [];
-                renderCalendar(y, m);
-            });
+    var monthPromise = fetch('/Tracker/GetMonthData?userId=' + USER_ID + '&year=' + y + '&month=' + m)
+        .then(r => r.json()).then(data => {
+            monthRecords = data.records; intervalRanges = data.intervalRanges || [];
+            limitRanges = data.limitRanges || []; restrictionRanges = data.restrictionRanges || [];
+        });
+    // 祝日とカレンダーデータを並列取得し、両方揃ったら描画（祝日が失敗してもカレンダーは表示）
+    Promise.all([monthPromise, loadHolidaysForYear(y)]).then(function() {
+        renderCalendar(y, m);
     });
 }
 function loadSummary() {
