@@ -98,6 +98,11 @@
         .don-tooltip .tt-btn-close  { background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 12px; padding: 4px 12px; font-size: 0.72rem; cursor: pointer; }
         .record-list-card { background: white; border-radius: 12px; box-shadow: 0 1px 8px rgba(0,0,0,0.08); padding: 14px 16px; margin-bottom: 14px; }
         .record-list-title { font-size: 0.88rem; font-weight: 700; color: #555; margin-bottom: 10px; }
+        .record-list-pager { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; gap: 8px; }
+        .pager-btn { background: #f5f5f5; border: none; border-radius: 8px; padding: 5px 14px; font-size: 0.8rem; cursor: pointer; color: #555; font-weight: 600; }
+        .pager-btn:disabled { opacity: 0.3; cursor: default; }
+        .pager-btn:not(:disabled):hover { background: #e8e8e8; }
+        .pager-info { font-size: 0.78rem; color: #999; }
         .record-list-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f5f5f5; font-size: 0.82rem; }
         .record-list-item:last-child { border-bottom: none; }
         .record-list-date { color: #888; width: 76px; flex-shrink: 0; }
@@ -136,7 +141,7 @@
         .rescheduled-table th { background: #f8f8f8; padding: 6px 8px; text-align: left; font-weight: 600; color: #666; border-bottom: 1px solid #eee; }
         .rescheduled-table td { padding: 7px 8px; border-bottom: 1px solid #f5f5f5; }
         .detail-row { display: flex; padding: 7px 0; border-bottom: 1px solid #f5f5f5; font-size: 0.85rem; }
-        .detail-key { color: #888; width: 56px; flex-shrink: 0; }
+        .detail-key { color: #888; width: 72px; flex-shrink: 0; }
         .detail-val { color: #333; font-weight: 600; }
         .detail-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
         select.form-ctrl, input.form-ctrl { width: 100%; padding: 8px 10px; border: 1.5px solid #e0e0e0; border-radius: 8px; font-size: 0.88rem; background: white; color: #333; box-sizing: border-box; }
@@ -314,8 +319,13 @@
     <div id="recordCol">
 
     <div class="record-list-card">
-        <div class="record-list-title"><i class="fa-solid fa-list" style="margin-right:8px; color:#aaa;"></i>過去1年の実績・予定</div>
+        <div class="record-list-title"><i class="fa-solid fa-list" style="margin-right:8px; color:#aaa;"></i>実績・予定一覧</div>
         <div id="recentList"><div class="loading-spinner"><div class="spinner-ring"></div></div></div>
+        <div class="record-list-pager">
+            <button class="pager-btn" id="pagerPrev" onclick="loadRecentRecords(_recentPage - 1)" disabled>◀ 新しい</button>
+            <span class="pager-info" id="pagerInfo"></span>
+            <button class="pager-btn" id="pagerNext" onclick="loadRecentRecords(_recentPage + 1)">古い ▶</button>
+        </div>
     </div>
 
     </div><!-- /recordCol -->
@@ -501,7 +511,7 @@ let holidays = {}, ttCache = {}, ttHideTimer = null, ttCurrentId = null, ttCurre
 document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('monthTitle').textContent = curYear + '年' + curMonth + '月';
     loadSummary();
-    loadHolidays().then(function() { loadMonth(curYear, curMonth); });
+    loadMonth(curYear, curMonth);
     loadRecentRecords();
     document.getElementById('btnPrev').onclick  = () => changeMonth(-1);
     document.getElementById('btnNext').onclick  = () => changeMonth(1);
@@ -528,17 +538,23 @@ function updateTodayBtn() {
     document.getElementById('btnToday').style.display = isCurrent ? 'none' : '';
 }
 
-function loadHolidays() {
-    return fetch('https://holidays-jp.github.io/api/v1/date.json')
-        .then(r => r.json()).then(d => { holidays = d; }).catch(() => { holidays = {}; });
+const _holidayFetchedYears = new Set();
+function loadHolidaysForYear(y) {
+    if (_holidayFetchedYears.has(y)) return Promise.resolve();
+    _holidayFetchedYears.add(y);
+    return fetch('https://holidays-jp.github.io/api/v1/' + y + '/date.json')
+        .then(r => r.json()).then(d => { Object.assign(holidays, d); })
+        .catch(() => {});
 }
 function loadMonth(y, m) {
-    fetch('/Tracker/GetMonthData?userId=' + USER_ID + '&year=' + y + '&month=' + m)
-        .then(r => r.json()).then(data => {
-            monthRecords = data.records; intervalRanges = data.intervalRanges || [];
-            limitRanges = data.limitRanges || []; restrictionRanges = data.restrictionRanges || [];
-            renderCalendar(y, m);
-        });
+    loadHolidaysForYear(y).then(function() {
+        fetch('/Tracker/GetMonthData?userId=' + USER_ID + '&year=' + y + '&month=' + m)
+            .then(r => r.json()).then(data => {
+                monthRecords = data.records; intervalRanges = data.intervalRanges || [];
+                limitRanges = data.limitRanges || []; restrictionRanges = data.restrictionRanges || [];
+                renderCalendar(y, m);
+            });
+    });
 }
 function loadSummary() {
     fetch('/Tracker/GetSummary?userId=' + USER_ID).then(r => r.json()).then(s => {
@@ -553,34 +569,52 @@ function loadSummary() {
         renderRestrictionList(s.activeRestrictions);
     });
 }
-function loadRecentRecords() {
-    fetch('/Tracker/GetRecentRecords?userId=' + USER_ID).then(r => r.json()).then(list => {
-        var el = document.getElementById('recentList');
-        if (!list.length) { el.innerHTML = '<div class="record-empty">まだ記録がありません</div>'; return; }
-        var fragments = list.map(function(r) {
-            var isWhole = IS_WHOLE(r.donationType);
-            var isPlan  = r.recordType === 'plan';
-            var color   = isWhole ? '#c0392b' : '#2980b9';
-            var icon    = isPlan ? '▷' : '●';
-            var dispDate = r.donationDate.replace(/-/g, '/');
-            var div = document.createElement('div');
-            div.className = 'record-list-item';
-            div.style.cursor = 'pointer';
-            div.innerHTML =
-                '<span class="record-list-date">' + esc(dispDate) + '</span>' +
-                '<span class="record-list-type-wrap">' +
-                    '<span class="record-list-type" style="color:' + color + ';">' + icon + ' ' + esc(TYPE_LABEL_LONG[r.donationType]) + (isPlan ? '（予定）' : '') + '</span>' +
-                    '<span class="record-list-icons">' +
-                        (r.roomName ? '<span class="rec-icon">🏥<span class="rec-icon-tip">' + esc(r.roomName) + '</span></span>' : '') +
-                        (r.notes    ? '<span class="rec-icon">📝<span class="rec-icon-tip">' + esc(r.notes)    + '</span></span>' : '') +
-                    '</span>' +
-                '</span>';
-            div.querySelectorAll('.rec-icon').forEach(function(ic) { ic.addEventListener('click', function(e) { e.stopPropagation(); }); });
-            (function(rec) { div.addEventListener('click', function() { openDetail(rec); }); })(r);
-            return div;
-        });
-        el.innerHTML = '';
-        fragments.forEach(function(d) { el.appendChild(d); });
+var _recentPage = 0;
+var _recentTotal = 0;
+var _recentPageSize = 10;
+function loadRecentRecords(page) {
+    var el = document.getElementById('recentList');
+    el.innerHTML = '<div class="loading-spinner"><div class="spinner-ring"></div></div>';
+    var url = '/Tracker/GetRecentRecords?userId=' + USER_ID + '&pageSize=' + _recentPageSize;
+    if (page !== undefined) url += '&page=' + page;
+    fetch(url)
+        .then(r => r.json()).then(function(res) {
+        _recentTotal = res.total;
+        _recentPage  = res.page;
+        var list = res.items;
+        if (_recentTotal === 0) { el.innerHTML = '<div class="record-empty">まだ記録がありません</div>'; }
+        else {
+            var fragments = list.map(function(r) {
+                var isWhole = IS_WHOLE(r.donationType);
+                var isPlan  = r.recordType === 'plan';
+                var color   = isWhole ? '#c0392b' : '#2980b9';
+                var icon    = isPlan ? '▷' : '●';
+                var dispDate = r.donationDate.replace(/-/g, '/');
+                var div = document.createElement('div');
+                div.className = 'record-list-item';
+                div.style.cursor = 'pointer';
+                div.innerHTML =
+                    '<span class="record-list-date">' + esc(dispDate) + '</span>' +
+                    '<span class="record-list-type-wrap">' +
+                        '<span class="record-list-type" style="color:' + color + ';">' + icon + ' ' + esc(TYPE_LABEL_LONG[r.donationType]) + (isPlan ? '（予定）' : '') + '</span>' +
+                        '<span class="record-list-icons">' +
+                            (r.roomName ? '<span class="rec-icon">🏥<span class="rec-icon-tip">' + esc(r.roomName) + '</span></span>' : '') +
+                            (r.notes    ? '<span class="rec-icon">📝<span class="rec-icon-tip">' + esc(r.notes)    + '</span></span>' : '') +
+                        '</span>' +
+                    '</span>';
+                div.querySelectorAll('.rec-icon').forEach(function(ic) { ic.addEventListener('click', function(e) { e.stopPropagation(); }); });
+                (function(rec) { div.addEventListener('click', function() { openDetail(rec); }); })(r);
+                return div;
+            });
+            el.innerHTML = '';
+            fragments.forEach(function(d) { el.appendChild(d); });
+        }
+        var totalPages = Math.ceil(_recentTotal / _recentPageSize);
+        document.getElementById('pagerPrev').disabled = (_recentPage === 0);
+        document.getElementById('pagerNext').disabled = (_recentPage >= totalPages - 1);
+        document.getElementById('pagerInfo').textContent = _recentTotal > 0
+            ? (_recentPage * _recentPageSize + 1) + '〜' + Math.min((_recentPage + 1) * _recentPageSize, _recentTotal) + ' / ' + _recentTotal + '件'
+            : '';
     });
 }
 function renderRestrictionList(restrictions) {
@@ -861,7 +895,8 @@ function savePlan() {
 function openDetail(r) {
     var isWhole = IS_WHOLE(r.donationType), isPlan = r.recordType === 'plan';
     document.getElementById('detailTitle').innerHTML = (isPlan ? '予定詳細' : '実績詳細');
-    document.getElementById('detailBody').innerHTML = detailRow('日付', r.donationDate.replace(/-/g, '/')) + detailRow('種別', TYPE_LABEL_LONG[r.donationType]) + detailRow('区分', isPlan ? '📅 予定' : '✅ 実績') + detailRow('メモ', r.notes || '-');
+    var roomLabel = (r.roomId && ROOM_MAP[r.roomId]) ? ROOM_MAP[r.roomId] : '-';
+    document.getElementById('detailBody').innerHTML = detailRow('日付', r.donationDate.replace(/-/g, '/')) + detailRow('種別', TYPE_LABEL_LONG[r.donationType]) + detailRow('区分', isPlan ? '📅 予定' : '✅ 実績') + detailRow('献血ルーム', roomLabel) + detailRow('メモ', r.notes || '-');
     var actions = document.getElementById('detailActions');
     actions.innerHTML = '';
     if (isPlan) { var btnConv = document.createElement('button'); btnConv.className = 'btn-green'; btnConv.textContent = '実績に変換'; btnConv.onclick = function() { closeModal('modalDetail'); openConvertModal(r); }; actions.appendChild(btnConv); }

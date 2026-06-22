@@ -185,31 +185,48 @@ public class TrackerController : Controller
     }
 
     // ─────────────────────────────────────────────
-    // Ajax: 過去1年の実績・予定一覧
+    // Ajax: 実績・予定一覧（ページング）
     // ─────────────────────────────────────────────
     [HttpGet]
-    public IActionResult GetRecentRecords(string userId)
+    public IActionResult GetRecentRecords(string userId, int? page = null, int pageSize = 10)
     {
-        var from = DateOnly.FromDateTime(DateTime.Now).AddYears(-1);
+        var today = DateOnly.FromDateTime(DateTime.Now);
 
-        var records = _db.KenketsuRecords
+        var query = _db.KenketsuRecords
             .AsNoTracking()
-            .Where(r => r.UserId == userId && r.DonationDate >= from)
-            .OrderByDescending(r => r.DonationDate)
-            .ToList();
+            .Where(r => r.UserId == userId)
+            .OrderByDescending(r => r.DonationDate);
 
-        return Json(records.Select(r => new
+        var total = query.Count();
+
+        // page未指定時は今日以降の件数からセンターページを計算
+        var futureCount = page == null
+            ? _db.KenketsuRecords.AsNoTracking()
+                .Count(r => r.UserId == userId && r.DonationDate >= today)
+            : 0;
+        // 今日以降の件数がちょうどページに収まる位置を求め、今日の境界がページ内に入るようにする
+        var resolvedPage = page ?? Math.Max(0, futureCount / pageSize);
+
+        var records = query.Skip(resolvedPage * pageSize).Take(pageSize).ToList();
+
+        return Json(new
         {
-            r.Id,
-            DonationDate = r.DonationDate.ToString("yyyy-MM-dd"),
-            r.DonationType,
-            r.RecordType,
-            r.Notes,
-            r.RoomId,
-            RoomName = r.RoomId.HasValue
-                ? (MasterData.Rooms.FirstOrDefault(rm => rm.RoomId == r.RoomId)?.RoomName ?? "")
-                : "",
-        }));
+            total,
+            page = resolvedPage,
+            pageSize,
+            items = records.Select(r => new
+            {
+                r.Id,
+                DonationDate = r.DonationDate.ToString("yyyy-MM-dd"),
+                r.DonationType,
+                r.RecordType,
+                r.Notes,
+                r.RoomId,
+                RoomName = r.RoomId.HasValue
+                    ? (MasterData.Rooms.FirstOrDefault(rm => rm.RoomId == r.RoomId)?.RoomName ?? "")
+                    : "",
+            }),
+        });
     }
 
     // ─────────────────────────────────────────────
