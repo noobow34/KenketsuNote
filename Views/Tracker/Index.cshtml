@@ -124,6 +124,7 @@
         .modal-footer-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
         .form-label-sm { font-size: 0.82rem; font-weight: 600; color: #555; margin-bottom: 4px; display: block; }
         .form-group-sm { margin-bottom: 12px; }
+        .form-group-sub { margin-bottom: 12px; padding-left: 12px; border-left: 3px solid #e8d5f5; }
         .btn-red    { background: #e74c3c; color: white; border: none; border-radius: 20px; padding: 8px 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
         .btn-red:hover { background: #c0392b; }
         .btn-blue   { background: #3498db; color: white; border: none; border-radius: 20px; padding: 8px 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
@@ -430,14 +431,14 @@
         <div class="modal-title" id="restrictionModalTitle"><i class="fa-solid fa-ban" style="margin-right:8px; color:#9b59b6;"></i>手動制限を追加</div>
         <input type="hidden" id="restrictionId">
         <div class="form-group-sm"><label class="form-label-sm">開始日</label><input type="date" id="restrictionStart" class="form-ctrl"></div>
-        <div class="form-group-sm"><label class="form-label-sm">種類</label>
+        <div class="form-group-sm"><label class="form-label-sm">該当項目（任意）</label>
             <select id="restrictionPreset" class="form-ctrl" onchange="onPresetChange()">
                 <option value="">選択してください</option>
-                <option value="custom">カスタム（日数を直接入力）</option>
+                <option value="custom">上記以外（日数を直接入力）</option>
             </select>
         </div>
-        <div class="form-group-sm" id="restrictionDaysRow"><label class="form-label-sm">日数</label><input type="number" id="restrictionDays" class="form-ctrl" min="1" max="365" value="7"></div>
-        <div class="form-group-sm"><label class="form-label-sm">メモ（任意）</label><input type="text" id="restrictionReason" class="form-ctrl" maxlength="200" placeholder="補足など"></div>
+        <div class="form-group-sub"><label class="form-label-sm">日数</label><input type="number" id="restrictionDays" class="form-ctrl" min="1" max="365" placeholder="日数を入力"></div>
+        <div class="form-group-sub"><label class="form-label-sm">理由（任意）</label><input type="text" id="restrictionReason" class="form-ctrl" maxlength="200" placeholder="補足など"></div>
         <div class="form-group-sm" id="restrictionEndPreview" style="font-size:0.8rem; color:#888;"></div>
         <div class="modal-footer-btns"><button class="btn-gray" onclick="closeModal('modalRestriction')">キャンセル</button><button class="btn-purple" onclick="saveRestriction()">保存</button></div>
     </div>
@@ -1010,6 +1011,7 @@ function loadRestrictionPresets() {
             var opt = document.createElement('option');
             opt.value = p.id; opt.textContent = p.label + '（' + p.durationDays + '日）';
             opt.dataset.days = p.durationDays;
+            opt.dataset.label = p.label;
             sel.insertBefore(opt, sel.options[1]); // カスタムの前に挿入
         });
     }).catch(function() {});
@@ -1017,12 +1019,9 @@ function loadRestrictionPresets() {
 function onPresetChange() {
     var sel = document.getElementById('restrictionPreset');
     var opt = sel.options[sel.selectedIndex];
-    var daysRow = document.getElementById('restrictionDaysRow');
-    if (sel.value === 'custom' || sel.value === '') {
-        daysRow.style.display = '';
-    } else {
+    if (sel.value !== '' && sel.value !== 'custom') {
         document.getElementById('restrictionDays').value = opt.dataset.days;
-        daysRow.style.display = 'none';
+        document.getElementById('restrictionReason').value = opt.dataset.label;
     }
     updateRestrictionPreview();
 }
@@ -1030,11 +1029,10 @@ function openAddRestrictionModal() {
     document.getElementById('restrictionModalTitle').innerHTML = '<i class="fa-solid fa-ban" style="margin-right:8px; color:#9b59b6;"></i>手動制限を追加';
     document.getElementById('restrictionId').value = '';
     document.getElementById('restrictionStart').value = todayStr;
-    document.getElementById('restrictionDays').value = '7';
+    document.getElementById('restrictionDays').value = '';
     document.getElementById('restrictionReason').value = '';
     loadRestrictionPresets().then(function() {
         document.getElementById('restrictionPreset').value = '';
-        document.getElementById('restrictionDaysRow').style.display = '';
         updateRestrictionPreview();
         openModal('modalRestriction');
     });
@@ -1052,7 +1050,6 @@ function openEditRestrictionModal(id, start, end, reason) {
         var sel = document.getElementById('restrictionPreset');
         var matched = _restrictionPresets.find(p => p.durationDays === days);
         sel.value = matched ? matched.id : 'custom';
-        document.getElementById('restrictionDaysRow').style.display = (sel.value === 'custom') ? '' : 'none';
         updateRestrictionPreview();
         openModal('modalRestriction');
     });
