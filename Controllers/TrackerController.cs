@@ -534,6 +534,20 @@ public class TrackerController : Controller
     }
 
     // ─────────────────────────────────────────────
+    // 手動制限プリセット一覧
+    // ─────────────────────────────────────────────
+    [HttpGet]
+    public IActionResult GetRestrictionPresets()
+    {
+        var presets = _db.KenketsuRestrictionPresets
+            .AsNoTracking()
+            .OrderBy(p => p.DisplayOrder)
+            .Select(p => new { p.Id, p.Label, p.DurationDays })
+            .ToList();
+        return Json(presets);
+    }
+
+    // ─────────────────────────────────────────────
     // 手動制限 CRUD
     // ─────────────────────────────────────────────
     [HttpPost]

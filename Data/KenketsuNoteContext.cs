@@ -22,6 +22,7 @@ public partial class KenketsuNoteContext : DbContext
     // ── トラッカー関連 ────────────────────────────────────
     public virtual DbSet<KenketsuRecord> KenketsuRecords { get; set; }
     public virtual DbSet<KenketsuRestriction> KenketsuRestrictions { get; set; }
+    public virtual DbSet<KenketsuRestrictionPreset> KenketsuRestrictionPresets { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
