@@ -180,7 +180,7 @@ public class TrackerController : Controller
                     r.Reason,
                     IsActive   = effStart <= r.EndDate && r.EndDate >= today,
                 };
-            }).Where(r => r.IsActive),
+            }).Where(r => r.IsActive).OrderBy(r => r.Start),
         });
     }
 

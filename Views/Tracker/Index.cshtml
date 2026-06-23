@@ -432,10 +432,8 @@
         <input type="hidden" id="restrictionId">
         <div class="form-group-sm"><label class="form-label-sm">開始日</label><input type="date" id="restrictionStart" class="form-ctrl"></div>
         <div class="form-group-sm"><label class="form-label-sm">該当項目（任意）</label>
-            <select id="restrictionPreset" class="form-ctrl" onchange="onPresetChange()">
-                <option value="">選択してください</option>
-                <option value="custom">上記以外（日数を直接入力）</option>
-            </select>
+            <button type="button" class="room-select-btn" onclick="openPresetPicker()"><span class="room-name" id="presetLabel">選択なし</span><span class="room-clear" onclick="clearPreset();event.stopPropagation()">✕</span></button>
+            <input type="hidden" id="restrictionPresetId">
         </div>
         <div class="form-group-sub"><label class="form-label-sm">日数</label><input type="number" id="restrictionDays" class="form-ctrl" min="1" max="365" placeholder="日数を入力"></div>
         <div class="form-group-sub"><label class="form-label-sm">理由（任意）</label><input type="text" id="restrictionReason" class="form-ctrl" maxlength="200" placeholder="補足など"></div>
@@ -459,6 +457,15 @@
         <input type="text" class="room-picker-search" id="roomPickerSearch" placeholder="ルーム名で検索…" oninput="filterRooms()">
         <div class="pref-filter" id="prefFilter"></div>
         <div class="room-list" id="roomPickerList"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modalPresetPicker" onclick="if(event.target===this)closeModal('modalPresetPicker')">
+    <div class="modal-box modal-lg">
+        <button class="modal-close" onclick="closeModal('modalPresetPicker')">×</button>
+        <div class="modal-title"><i class="fa-solid fa-ban" style="margin-right:8px;color:#9b59b6;"></i>該当項目を選択</div>
+        <input type="text" class="room-picker-search" id="presetPickerSearch" placeholder="項目名で検索…" oninput="filterPresets()">
+        <div class="room-list" id="presetPickerList"></div>
     </div>
 </div>
 
@@ -1004,26 +1011,70 @@ function loadRestrictionPresets() {
     if (_restrictionPresets.length > 0) return Promise.resolve();
     return fetch('/Tracker/GetRestrictionPresets').then(r => r.json()).then(function(list) {
         _restrictionPresets = list;
-        var sel = document.getElementById('restrictionPreset');
-        // 既存のプリセット選択肢を削除（固定2件の後に追加）
-        while (sel.options.length > 2) sel.remove(2);
-        list.forEach(function(p) {
-            var opt = document.createElement('option');
-            opt.value = p.id; opt.textContent = p.label + '（' + p.durationDays + '日）';
-            opt.dataset.days = p.durationDays;
-            opt.dataset.label = p.label;
-            sel.insertBefore(opt, sel.options[1]); // カスタムの前に挿入
-        });
     }).catch(function() {});
 }
-function onPresetChange() {
-    var sel = document.getElementById('restrictionPreset');
-    var opt = sel.options[sel.selectedIndex];
-    if (sel.value !== '' && sel.value !== 'custom') {
-        document.getElementById('restrictionDays').value = opt.dataset.days;
-        document.getElementById('restrictionReason').value = opt.dataset.label;
+function openPresetPicker() {
+    loadRestrictionPresets().then(function() {
+        document.getElementById('presetPickerSearch').value = '';
+        renderPresetList('');
+        openModal('modalPresetPicker');
+        setTimeout(() => document.getElementById('presetPickerSearch').focus(), 80);
+    });
+}
+function filterPresets() {
+    renderPresetList(document.getElementById('presetPickerSearch').value.trim().toLowerCase());
+}
+function renderPresetList(q) {
+    var list = document.getElementById('presetPickerList');
+    list.innerHTML = '';
+    var noneItem = document.createElement('div');
+    noneItem.className = 'room-list-item none-item';
+    noneItem.textContent = '選択なし';
+    noneItem.onclick = () => selectPreset(null, null, null);
+    list.appendChild(noneItem);
+    var filtered = _restrictionPresets.filter(function(p) {
+        return !q || p.label.toLowerCase().indexOf(q) !== -1;
+    });
+    if (filtered.length === 0) {
+        var empty = document.createElement('div');
+        empty.className = 'room-list-empty';
+        empty.textContent = '該当する項目がありません';
+        list.appendChild(empty);
+    } else {
+        filtered.forEach(function(p) {
+            var item = document.createElement('div');
+            item.className = 'room-list-item';
+            var nameSpan = document.createElement('span');
+            nameSpan.style.flex = '1';
+            nameSpan.textContent = p.label;
+            var daysSpan = document.createElement('span');
+            daysSpan.className = 'room-pref-tag';
+            daysSpan.textContent = p.durationDays + '日';
+            item.appendChild(nameSpan);
+            item.appendChild(daysSpan);
+            item.onclick = () => selectPreset(p.id, p.label, p.durationDays);
+            list.appendChild(item);
+        });
+    }
+    var customItem = document.createElement('div');
+    customItem.className = 'room-list-item none-item';
+    customItem.textContent = '上記以外（日数を直接入力）';
+    customItem.onclick = () => selectPreset('custom', null, null);
+    list.appendChild(customItem);
+}
+function selectPreset(id, label, days) {
+    closeModal('modalPresetPicker');
+    document.getElementById('restrictionPresetId').value = id || '';
+    document.getElementById('presetLabel').textContent = label || (id === 'custom' ? '上記以外（日数を直接入力）' : '選択なし');
+    if (id && id !== 'custom' && days !== null) {
+        document.getElementById('restrictionDays').value = days;
+        document.getElementById('restrictionReason').value = label;
     }
     updateRestrictionPreview();
+}
+function clearPreset() {
+    document.getElementById('restrictionPresetId').value = '';
+    document.getElementById('presetLabel').textContent = '選択なし';
 }
 function openAddRestrictionModal() {
     document.getElementById('restrictionModalTitle').innerHTML = '<i class="fa-solid fa-ban" style="margin-right:8px; color:#9b59b6;"></i>手動制限を追加';
@@ -1031,11 +1082,10 @@ function openAddRestrictionModal() {
     document.getElementById('restrictionStart').value = todayStr;
     document.getElementById('restrictionDays').value = '';
     document.getElementById('restrictionReason').value = '';
-    loadRestrictionPresets().then(function() {
-        document.getElementById('restrictionPreset').value = '';
-        updateRestrictionPreview();
-        openModal('modalRestriction');
-    });
+    document.getElementById('restrictionPresetId').value = '';
+    document.getElementById('presetLabel').textContent = '選択なし';
+    updateRestrictionPreview();
+    openModal('modalRestriction');
 }
 function openEditRestrictionModal(id, start, end, reason) {
     document.getElementById('restrictionModalTitle').innerHTML = '<i class="fa-solid fa-ban" style="margin-right:8px; color:#9b59b6;"></i>手動制限を編集';
@@ -1046,10 +1096,9 @@ function openEditRestrictionModal(id, start, end, reason) {
     document.getElementById('restrictionDays').value = days;
     document.getElementById('restrictionReason').value = reason;
     loadRestrictionPresets().then(function() {
-        // 日数が一致するプリセットがあれば選択
-        var sel = document.getElementById('restrictionPreset');
         var matched = _restrictionPresets.find(p => p.durationDays === days);
-        sel.value = matched ? matched.id : 'custom';
+        document.getElementById('restrictionPresetId').value = matched ? matched.id : 'custom';
+        document.getElementById('presetLabel').textContent = matched ? matched.label : '上記以外（日数を直接入力）';
         updateRestrictionPreview();
         openModal('modalRestriction');
     });
