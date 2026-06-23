@@ -183,6 +183,8 @@
         .room-list-item .room-pref-tag { font-size:0.72rem; color:#aaa; flex-shrink:0; }
         .room-list-item .closed-tag { font-size:0.7rem; color:#bbb; flex-shrink:0; }
         .room-list-empty { padding:16px; text-align:center; color:#aaa; font-size:0.85rem; }
+        .show-closed-toggle { display:flex; align-items:center; gap:6px; font-size:0.78rem; color:#999; margin-bottom:8px; cursor:pointer; user-select:none; }
+        .show-closed-toggle input[type=checkbox] { cursor:pointer; }
         /* ── スタンプ反映確認 ── */
         .stamp-confirm-room { font-size:1rem; font-weight:700; color:#333; text-align:center; margin:12px 0 4px; }
         .stamp-confirm-note { font-size:0.8rem; color:#888; text-align:center; margin-bottom:4px; }
@@ -456,6 +458,7 @@
         <div class="modal-title"><i class="fa-solid fa-location-dot" style="margin-right:8px;color:#e74c3c;"></i>献血ルームを選択</div>
         <input type="text" class="room-picker-search" id="roomPickerSearch" placeholder="ルーム名で検索…" oninput="filterRooms()">
         <div class="pref-filter" id="prefFilter"></div>
+        <label class="show-closed-toggle"><input type="checkbox" id="showClosedCheck" onchange="toggleShowClosed()"> 閉鎖済みのルームを含む</label>
         <div class="room-list" id="roomPickerList"></div>
     </div>
 </div>
@@ -722,18 +725,25 @@ function closeModal(id) { document.getElementById(id).classList.remove('show'); 
 function showMsg(text, icon) { document.getElementById('msgText').textContent = text; document.getElementById('msgIcon').textContent = icon || 'ℹ️'; openModal('modalMsg'); }
 
 // ── ルームピッカー ──────────────────────────────────────────
-let _roomPickerTarget = null;  // 'plan' | 'convert' | 'edit'
-let _roomPickerPref   = null;
+let _roomPickerTarget     = null;  // 'plan' | 'convert' | 'edit'
+let _roomPickerPref       = null;
+let _roomPickerShowClosed = false;
 let _stampPendingRecordId = null;
 
 function openRoomPicker(target) {
-    _roomPickerTarget = target;
-    _roomPickerPref   = null;
+    _roomPickerTarget     = target;
+    _roomPickerPref       = null;
+    _roomPickerShowClosed = false;
     document.getElementById('roomPickerSearch').value = '';
+    document.getElementById('showClosedCheck').checked = false;
     buildPrefFilter();
     filterRooms();
     openModal('modalRoomPicker');
     setTimeout(() => document.getElementById('roomPickerSearch').focus(), 80);
+}
+function toggleShowClosed() {
+    _roomPickerShowClosed = document.getElementById('showClosedCheck').checked;
+    filterRooms();
 }
 function buildPrefFilter() {
     var el = document.getElementById('prefFilter');
@@ -764,6 +774,7 @@ function filterRooms() {
     var q    = document.getElementById('roomPickerSearch').value.trim().toLowerCase();
     var list = document.getElementById('roomPickerList');
     var filtered = ROOMS.filter(function(r) {
+        if (!_roomPickerShowClosed && r.isClosed) return false;
         if (_roomPickerPref && r.prefId !== _roomPickerPref) return false;
         if (q && r.roomName.toLowerCase().indexOf(q) === -1) return false;
         return true;
