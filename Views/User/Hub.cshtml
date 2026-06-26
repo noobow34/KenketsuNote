@@ -20,6 +20,8 @@
     <meta name="twitter:description" content="献血の記録をもっと楽しく。全国スタンプ帳と計画管理で、次の献血へ。">
     <meta name="twitter:image" content="https://kenketsu.noobow.me/image/logo1-ogp.png">
     <meta name="twitter:creator" content="@@noobow">
+    <link rel="manifest" href="/pwa/manifest?userId=@userId&page=hub">
+    <meta name="theme-color" content="#d32f2f">
     <title>けんけつノート</title>
     <style>
         body {
@@ -175,12 +177,29 @@
         </div>
     </div>
 
+    <button id="pwaInstallBtn" onclick="installPwa()" style="display:none;margin-top:20px;width:100%;padding:12px;background:#fff5f5;border:1.5px solid #d32f2f;border-radius:12px;color:#d32f2f;font-size:0.95rem;font-weight:600;cursor:pointer;">📲 アプリをインストール</button>
+
     <div class="hub-footer">
         <a href="/">けんけつノート トップ</a>
     </div>
 
     <script>
         document.getElementById('myUrl').textContent = window.location.href;
+        var _pwaPrompt = null;
+        window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault(); _pwaPrompt = e;
+            document.getElementById('pwaInstallBtn').style.display = 'block';
+        });
+        window.addEventListener('appinstalled', function() {
+            _pwaPrompt = null;
+            document.getElementById('pwaInstallBtn').style.display = 'none';
+        });
+        function installPwa() {
+            if (!_pwaPrompt) return;
+            _pwaPrompt.prompt();
+            _pwaPrompt.userChoice.then(function(){ _pwaPrompt = null; document.getElementById('pwaInstallBtn').style.display = 'none'; });
+        }
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
     </script>
 </div>
 </body>

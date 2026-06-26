@@ -21,6 +21,8 @@
     <meta name="twitter:description" content="献血の記録をもっと楽しく。全国スタンプ帳と計画管理で、次の献血へ。">
     <meta name="twitter:image" content="https://kenketsu.noobow.me/image/logo1-ogp.png">
     <meta name="twitter:creator" content="@@noobow">
+    <link rel="manifest" href="/pwa/manifest?userId=@Model.User.UserId&page=stamp">
+    <meta name="theme-color" content="#d32f2f">
     <title>けんけつノート 全国スタンプ@(!string.IsNullOrEmpty(Model.User.UserName) ? $"（{Model.User.UserName} さん）" : "")</title>
     <style>
         body {
@@ -768,8 +770,24 @@
     <div style="border-top:1px solid #f0f0f0;margin-top:auto;"></div>
     <a href="/" class="nav-item"><span class="nav-item-icon">🏡</span>トップページ</a>
     <a href="https://forms.gle/H5UpkMp8qQMnoujp8" class="nav-item" target="_blank" rel="noopener"><span class="nav-item-icon">✉️</span>お問い合わせ</a>
+    <button class="nav-item pwa-install-btn" onclick="installPwa()" style="display:none;width:100%;background:none;border:none;border-top:1px solid #f0f0f0;cursor:pointer;color:#d32f2f;font-weight:600;"><span class="nav-item-icon">📲</span>アプリをインストール</button>
 </nav>
 <script>
+var _pwaPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault(); _pwaPrompt = e;
+    document.querySelectorAll('.pwa-install-btn').forEach(function(b){ b.style.display='flex'; });
+});
+window.addEventListener('appinstalled', function() {
+    _pwaPrompt = null;
+    document.querySelectorAll('.pwa-install-btn').forEach(function(b){ b.style.display='none'; });
+});
+function installPwa() {
+    if (!_pwaPrompt) return;
+    _pwaPrompt.prompt();
+    _pwaPrompt.userChoice.then(function(){ _pwaPrompt = null; document.querySelectorAll('.pwa-install-btn').forEach(function(b){ b.style.display='none'; }); });
+}
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 function openNav()  { document.getElementById('navDrawer').classList.add('open'); document.getElementById('navOverlay').classList.add('open'); }
 function closeNav() { document.getElementById('navDrawer').classList.remove('open'); document.getElementById('navOverlay').classList.remove('open'); }
 </script>
