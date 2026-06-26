@@ -87,7 +87,7 @@
         .col-sat .day-num { color: #3498db !important; }
         .col-holiday .day-num { color: #e74c3c !important; }
         .holiday-name { font-size: 0.6rem; color: #e74c3c; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 1px; }
-        .don-badge { display: block; width: 100%; font-size: 0.65rem; font-weight: 700; border-radius: 4px; padding: 1px 3px; margin-bottom: 2px; cursor: pointer; line-height: 1.4; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .don-badge { display: block; font-size: 0.65rem; font-weight: 700; border-radius: 4px; padding: 1px 3px; margin: 0 3px 2px 0; cursor: pointer; line-height: 1.4; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .badge-whole  { background: #fde8e8; color: #c0392b; border: 1px solid #f5c6c6; }
         .badge-comp   { background: #e8f4fd; color: #2980b9; border: 1px solid #bde0f5; }
         .badge-plan   { opacity: 0.7; }
@@ -267,7 +267,7 @@
         </div>
         <div class="sim-banner" id="simBanner" style="display:none;"></div>
         <div class="summary-row">
-            <span class="summary-label">400/200</span>
+            <span class="summary-label">全血</span>
             <div class="progress"><div class="progress-bar-whole" id="wholeBar" style="width:0%;"></div></div>
             <span class="summary-val" id="wholeVal">読込中…</span>
         </div>
@@ -278,7 +278,7 @@
         </div>
         <div class="next-row">
             <div class="next-col">
-                <div class="next-label">次回400/200可能日</div>
+                <div class="next-label">次回全血可能日</div>
                 <div class="next-date" id="nextWhole">-</div>
             </div>
             <div class="next-col">
@@ -534,7 +534,7 @@ const PREFS           = @Html.Raw(ViewBag.PrefsJson  ?? "[]");
 const BLOCKS          = @Html.Raw(ViewBag.BlocksJson ?? "[]");
 const PREF_MAP        = Object.fromEntries(PREFS.map(p => [p.prefId, p.prefName]));
 const ROOM_MAP        = Object.fromEntries(ROOMS.map(r => [r.roomId, r.roomName]));
-const TYPE_LABEL = { whole_200:'全血200', whole_400:'全血400', plasma:'血漿', platelet:'血小板' };
+const TYPE_LABEL = { whole_200:'200', whole_400:'400', plasma:'血漿', platelet:'血小板' };
 const TYPE_LABEL_LONG = { whole_200:'全血 200ml', whole_400:'全血 400ml', plasma:'血漿成分', platelet:'血小板成分' };
 const IS_WHOLE = t => t === 'whole_200' || t === 'whole_400';
 
