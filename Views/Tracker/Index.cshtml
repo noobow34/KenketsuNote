@@ -17,9 +17,10 @@
         .back-link { color: #c0392b; text-decoration: none; font-size: 0.9rem; }
         .back-link:hover { text-decoration: underline; }
         .summary-card { background: white; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 8px rgba(0,0,0,0.08); margin-bottom: 14px; }
-        .sim-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid #f0f0f0; }
+        .sim-bar { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid #f0f0f0; }
+        .sim-bar-row { display:flex; align-items:center; gap:8px; }
         .sim-label { font-size:0.78rem; color:#888; flex-shrink:0; }
-        .sim-date-input { border:1.5px solid #e0e0e0; border-radius:6px; padding:4px 8px; font-size:0.8rem; color:#333; }
+        .sim-date-input { border:1.5px solid #e0e0e0; border-radius:6px; padding:4px 8px; font-size:0.8rem; color:#333; flex:1; min-width:0; }
         .sim-date-input:focus { outline:none; border-color:#9b59b6; }
         .sim-plans-label { font-size:0.78rem; color:#888; display:flex; align-items:center; gap:4px; cursor:pointer; }
         .sim-reset-btn { font-size:0.75rem; padding:3px 10px; border:none; border-radius:12px; background:#e8d5f5; color:#9b59b6; cursor:pointer; font-weight:600; }
@@ -255,14 +256,18 @@
     <!-- サマリーカード -->
     <div class="summary-card" id="summaryCard">
         <div class="sim-bar">
-            <span class="sim-label">日付を指定：</span>
-            <input type="date" id="simDate" class="sim-date-input" onchange="onSimChange()">
-            <label class="sim-plans-label"><input type="checkbox" id="simIncludePlans" checked onchange="onSimChange()"> 予定を含む</label>
-            <button class="sim-reset-btn" id="simResetBtn" onclick="resetSim()" style="display:none;">今日に戻す</button>
+            <div class="sim-bar-row">
+                <span class="sim-label">日付を指定：</span>
+                <input type="date" id="simDate" class="sim-date-input" onchange="onSimChange()">
+            </div>
+            <div class="sim-bar-row">
+                <label class="sim-plans-label"><input type="checkbox" id="simIncludePlans" checked onchange="onSimChange()"> 予定を含む</label>
+                <button class="sim-reset-btn" id="simResetBtn" onclick="resetSim()" style="display:none;">今日に戻す</button>
+            </div>
         </div>
         <div class="sim-banner" id="simBanner" style="display:none;"></div>
         <div class="summary-row">
-            <span class="summary-label">全血</span>
+            <span class="summary-label">400/200</span>
             <div class="progress"><div class="progress-bar-whole" id="wholeBar" style="width:0%;"></div></div>
             <span class="summary-val" id="wholeVal">読込中…</span>
         </div>
@@ -273,7 +278,7 @@
         </div>
         <div class="next-row">
             <div class="next-col">
-                <div class="next-label">次回全血可能日</div>
+                <div class="next-label">次回400/200可能日</div>
                 <div class="next-date" id="nextWhole">-</div>
             </div>
             <div class="next-col">
