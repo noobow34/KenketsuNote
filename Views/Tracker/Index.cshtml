@@ -51,6 +51,7 @@
         .next-col:first-child { border-right: 1px solid #f0f0f0; }
         .next-label { font-size: 0.75rem; color: #aaa; }
         .next-date  { font-size: 0.88rem; font-weight: 700; color: #333; }
+        .gender-change-inline-btn { font-size: 0.88rem; font-weight: 700; color: #d32f2f; background: none; border: none; padding: 0; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
         .restriction-list { margin-top: 10px; border-top: 1px solid #f0f0f0; padding-top: 10px; }
         .restriction-item { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; padding: 4px 0; color: #555; border-bottom: 1px solid #f8f0ff; }
         .restriction-dot { width: 8px; height: 8px; border-radius: 50%; background: #9b59b6; flex-shrink: 0; }
@@ -299,6 +300,10 @@
                 <div class="next-label">次回成分可能日</div>
                 <div class="next-date" id="nextComp">-</div>
             </div>
+            <div class="next-col" style="flex:0 0 auto;">
+                <div class="next-label">性別</div>
+                <button class="gender-change-inline-btn" onclick="openGenderModal(false)" id="genderInlineBtn">-</button>
+            </div>
         </div>
         <div class="restriction-list" id="restrictionList" style="display:none;">
             <div style="font-size:0.88rem; font-weight:700; color:#9b59b6; margin-bottom:6px;">
@@ -542,7 +547,8 @@
 
 <script>
 const USER_ID         = '@userId';
-const GENDER_REQUIRED = @(genderRequired ? "true" : "false");
+const GENDER_REQUIRED  = @(genderRequired ? "true" : "false");
+const CURRENT_GENDER   = @Html.Raw(ViewBag.CurrentGender != null ? $"'{ViewBag.CurrentGender}'" : "null");
 const ROOMS           = @Html.Raw(ViewBag.RoomsJson  ?? "[]");
 const PREFS           = @Html.Raw(ViewBag.PrefsJson  ?? "[]");
 const BLOCKS          = @Html.Raw(ViewBag.BlocksJson ?? "[]");
@@ -559,8 +565,16 @@ let monthRecords = [], intervalRanges = [], limitRanges = [], restrictionRanges 
 let pendingProposals = [], pendingDeleteId = null, pendingDeleteRestId = null;
 let holidays = {}, ttCache = {}, ttHideTimer = null, ttCurrentId = null, ttCurrentRec = null;
 
+function updateGenderInlineBtn() {
+    var btn = document.getElementById('genderInlineBtn');
+    if (!btn) return;
+    btn.textContent = CURRENT_GENDER === 'male' ? '♂ 男性' : CURRENT_GENDER === 'female' ? '♀ 女性' : '未設定';
+    btn.style.color  = CURRENT_GENDER === 'male' ? '#1565c0' : '#d32f2f';
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('monthTitle').textContent = curYear + '年' + curMonth + '月';
+    updateGenderInlineBtn();
     loadSummary();
     loadMonth(curYear, curMonth);
     loadRecentRecords();
@@ -921,9 +935,10 @@ let _selectedGender = null;
 let _pendingGenderRequired = false;
 function openGenderModal(required) {
     _pendingGenderRequired = required;
-    _selectedGender = null;
-    document.getElementById('gcMale').classList.remove('selected');
-    document.getElementById('gcFemale').classList.remove('selected');
+    var initial = required ? null : CURRENT_GENDER;
+    _selectedGender = initial;
+    document.getElementById('gcMale').classList.toggle('selected',   initial === 'male');
+    document.getElementById('gcFemale').classList.toggle('selected', initial === 'female');
     var cancelBtn = document.getElementById('genderCancelBtn');
     if (required) cancelBtn.style.display = 'none'; else cancelBtn.style.display = '';
     openModal('modalGender');
