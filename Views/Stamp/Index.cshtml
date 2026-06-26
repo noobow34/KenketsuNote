@@ -245,7 +245,7 @@
         .nav-hamburger span { display: block; width: 20px; height: 2px; background: #555; border-radius: 2px; }
         .nav-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 2000; }
         .nav-overlay.open { display: block; }
-        .nav-drawer { position: fixed; top: 0; right: -280px; width: 260px; height: 100vh; background: white; z-index: 2001; box-shadow: -4px 0 20px rgba(0,0,0,0.15); transition: right 0.25s ease; display: flex; flex-direction: column; }
+        .nav-drawer { position: fixed; top: 0; right: -280px; width: 260px; height: 100vh; height: 100dvh; background: white; z-index: 2001; box-shadow: -4px 0 20px rgba(0,0,0,0.15); transition: right 0.25s ease; display: flex; flex-direction: column; overflow-y: auto; }
         .nav-drawer.open { right: 0; }
         .nav-drawer-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 14px; border-bottom: 1px solid #f0f0f0; }
         .nav-drawer-title { font-size: 1.1rem; font-weight: 700; color: #b71c1c; }
