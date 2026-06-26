@@ -144,14 +144,19 @@ public class TrackerController : Controller
     // Ajax: サマリー取得
     // ─────────────────────────────────────────────
     [HttpGet]
-    public IActionResult GetSummary(string userId)
+    public IActionResult GetSummary(string userId, string? asOfDate = null, bool includePlans = true)
     {
-        var today        = DateOnly.FromDateTime(DateTime.Now);
+        var today    = DateOnly.FromDateTime(DateTime.Now);
+        var baseDate = (asOfDate != null && DateOnly.TryParse(asOfDate, out var d)) ? d : today;
         var gender       = GetGender(userId);
         var limit        = LimitFor(gender);
-        var records      = _db.KenketsuRecords.AsNoTracking().Where(r => r.UserId == userId).ToList();
+        var allRecords   = _db.KenketsuRecords.AsNoTracking().Where(r => r.UserId == userId).ToList();
+        var records      = allRecords
+            .Where(r => r.DonationDate <= baseDate)
+            .Where(r => includePlans || r.RecordType != "plan")
+            .ToList();
         var restrictions = _db.KenketsuRestrictions.AsNoTracking().Where(r => r.UserId == userId).ToList();
-        var s = limit.CalculateSummary(today, records, restrictions);
+        var s = limit.CalculateSummary(baseDate, records, restrictions);
 
         return Json(new
         {

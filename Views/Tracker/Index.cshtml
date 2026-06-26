@@ -17,6 +17,14 @@
         .back-link { color: #c0392b; text-decoration: none; font-size: 0.9rem; }
         .back-link:hover { text-decoration: underline; }
         .summary-card { background: white; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 8px rgba(0,0,0,0.08); margin-bottom: 14px; }
+        .sim-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid #f0f0f0; }
+        .sim-label { font-size:0.78rem; color:#888; flex-shrink:0; }
+        .sim-date-input { border:1.5px solid #e0e0e0; border-radius:6px; padding:4px 8px; font-size:0.8rem; color:#333; }
+        .sim-date-input:focus { outline:none; border-color:#9b59b6; }
+        .sim-plans-label { font-size:0.78rem; color:#888; display:flex; align-items:center; gap:4px; cursor:pointer; }
+        .sim-reset-btn { font-size:0.75rem; padding:3px 10px; border:none; border-radius:12px; background:#e8d5f5; color:#9b59b6; cursor:pointer; font-weight:600; }
+        .sim-reset-btn:hover { background:#d5b8f0; }
+        .sim-banner { font-size:0.78rem; color:#9b59b6; background:#f8f0ff; border-radius:6px; padding:5px 10px; margin-bottom:10px; }
         .summary-row { display: flex; align-items: center; margin-bottom: 8px; gap: 8px; }
         .summary-label { font-size: 0.78rem; color: #888; width: 52px; flex-shrink: 0; }
         .progress { height: 12px; border-radius: 6px; background: #f0f0f0; flex: 1; }
@@ -246,6 +254,13 @@
 
     <!-- サマリーカード -->
     <div class="summary-card" id="summaryCard">
+        <div class="sim-bar">
+            <span class="sim-label">日付を指定：</span>
+            <input type="date" id="simDate" class="sim-date-input" onchange="onSimChange()">
+            <label class="sim-plans-label"><input type="checkbox" id="simIncludePlans" checked onchange="onSimChange()"> 予定を含む</label>
+            <button class="sim-reset-btn" id="simResetBtn" onclick="resetSim()" style="display:none;">今日に戻す</button>
+        </div>
+        <div class="sim-banner" id="simBanner" style="display:none;"></div>
         <div class="summary-row">
             <span class="summary-label">全血</span>
             <div class="progress"><div class="progress-bar-whole" id="wholeBar" style="width:0%;"></div></div>
@@ -575,7 +590,12 @@ function loadMonth(y, m) {
     });
 }
 function loadSummary() {
-    fetch('/Tracker/GetSummary?userId=' + USER_ID).then(r => r.json()).then(s => {
+    var simDate      = document.getElementById('simDate').value;
+    var includePlans = document.getElementById('simIncludePlans').checked;
+    var url = '/Tracker/GetSummary?userId=' + USER_ID;
+    if (simDate) url += '&asOfDate=' + simDate;
+    if (!includePlans) url += '&includePlans=false';
+    fetch(url).then(r => r.json()).then(s => {
         var wPct = Math.min(100, Math.round(s.usedVolumeMl / s.maxVolumeMl * 100));
         var cPct = Math.min(100, Math.round(s.usedComponentCount / s.maxComponentCount * 100));
         document.getElementById('wholeBar').style.width = wPct + '%';
@@ -586,6 +606,27 @@ function loadSummary() {
         document.getElementById('nextComp').innerHTML  = formatNextDate(s.nextComponentPossible, s.nextComponentLimitConstrained, s.nextComponentRestrictionConstrained);
         renderRestrictionList(s.activeRestrictions);
     });
+}
+function onSimChange() {
+    var simDate = document.getElementById('simDate').value;
+    var isSim   = !!simDate && simDate !== todayStr;
+    var includePlans = document.getElementById('simIncludePlans').checked;
+    document.getElementById('simResetBtn').style.display = isSim ? '' : 'none';
+    var banner = document.getElementById('simBanner');
+    if (isSim) {
+        var parts = simDate.split('-');
+        var label = parts[0] + '/' + parts[1] + '/' + parts[2];
+        var planNote = includePlans ? '予定含む' : '実績のみ';
+        banner.innerHTML = '<i class="fa-solid fa-clock-rotate-left" style="margin-right:5px;"></i>' + label + ' 時点のシミュレーション（' + planNote + '）';
+        banner.style.display = '';
+    } else {
+        banner.style.display = 'none';
+    }
+    loadSummary();
+}
+function resetSim() {
+    document.getElementById('simDate').value = '';
+    onSimChange();
 }
 var _recentPage = 0;
 var _recentTotal = 0;
