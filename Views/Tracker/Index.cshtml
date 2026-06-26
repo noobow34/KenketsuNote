@@ -670,7 +670,8 @@ function renderCalendar(y, m) {
             var holidayName = !cell.other ? (holidays[cell.date] || null) : null;
             var intervalKind = !cell.other ? dateRangeKind(cell.date, intervalRanges) : null;
             var limitKind    = !cell.other ? dateRangeKind(cell.date, limitRanges)    : null;
-            var isRestricted = !cell.other && dateInRanges(cell.date, restrictionRanges);
+            var restrictionRange = !cell.other ? dateGetRange(cell.date, restrictionRanges) : null;
+            var isRestricted = !!restrictionRange;
             var wholeByInterval = intervalKind === 'interval_both' || intervalKind === 'interval_whole';
             var wholeByLimit    = limitKind === 'limit_both' || limitKind === 'limit_whole';
             var compByInterval  = intervalKind === 'interval_both';
@@ -690,7 +691,7 @@ function renderCalendar(y, m) {
                 var indWrap = document.createElement('div');
                 indWrap.className = 'cell-indicators';
                 if (isRestricted) {
-                    var dRest = document.createElement('span'); dRest.className = 'ind-dot ind-restriction'; dRest.textContent = '×'; dRest.title = '手動制限'; indWrap.appendChild(dRest);
+                    var dRest = document.createElement('span'); dRest.className = 'ind-dot ind-restriction'; dRest.textContent = '×'; dRest.title = '手動制限' + (restrictionRange && restrictionRange.reason ? '：' + restrictionRange.reason : ''); indWrap.appendChild(dRest);
                 } else {
                     if (wholeByInterval) { var dWI = document.createElement('span'); dWI.className = 'ind-dot ind-whole-interval'; dWI.textContent = '×'; indWrap.appendChild(dWI); }
                     else if (wholeByLimit) { var dWL = document.createElement('span'); dWL.className = 'ind-star ind-whole-limit'; dWL.textContent = '！'; indWrap.appendChild(dWL); }
@@ -719,6 +720,7 @@ function renderCalendar(y, m) {
     }
 }
 function dateInRanges(ds, ranges) { return ranges.some(r => ds >= r.start && ds <= r.end); }
+function dateGetRange(ds, ranges) { return ranges.find(r => ds >= r.start && ds <= r.end) || null; }
 function dateRangeKind(ds, ranges) { var h = ranges.find(r => ds >= r.start && ds <= r.end); return h ? h.kind : null; }
 function openModal(id)  { document.getElementById(id).classList.add('show'); }
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
