@@ -534,7 +534,7 @@ const PREFS           = @Html.Raw(ViewBag.PrefsJson  ?? "[]");
 const BLOCKS          = @Html.Raw(ViewBag.BlocksJson ?? "[]");
 const PREF_MAP        = Object.fromEntries(PREFS.map(p => [p.prefId, p.prefName]));
 const ROOM_MAP        = Object.fromEntries(ROOMS.map(r => [r.roomId, r.roomName]));
-const TYPE_LABEL = { whole_200:'200', whole_400:'400', plasma:'血漿', platelet:'血小板' };
+const TYPE_LABEL = { whole_200:'200', whole_400:'400', plasma:'血漿', platelet:'血小' };
 const TYPE_LABEL_LONG = { whole_200:'全血 200ml', whole_400:'全血 400ml', plasma:'血漿成分', platelet:'血小板成分' };
 const IS_WHOLE = t => t === 'whole_200' || t === 'whole_400';
 
