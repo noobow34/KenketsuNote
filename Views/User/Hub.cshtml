@@ -170,7 +170,8 @@
         <strong>🔖 このページをブックマークしてご利用ください</strong>
         このURLがあなた専用のマイページです。次回以降はこのURLから直接アクセスしてください。
         <div>
-            <span class="hub-url" title="クリックで全選択" id="myUrl"></span>
+            <span class="hub-url" title="クリックでURLをコピー" id="myUrl" onclick="copyMyUrl()"></span>
+            <div id="urlCopyToast" style="font-size:0.8em;color:#388e3c;margin-top:2px;display:none;">コピーしました</div>
         </div>
         <div class="hub-disclaimer">
             ⚠ このURLを知っている人はだれでもページにアクセス・編集できます。URLの取り扱いにご注意ください。なお、記録の流出・消失について当方では責任を負いかねます。
@@ -185,6 +186,13 @@
 
     <script>
         document.getElementById('myUrl').textContent = window.location.href;
+        function copyMyUrl() {
+            navigator.clipboard.writeText(window.location.href).then(function() {
+                var toast = document.getElementById('urlCopyToast');
+                toast.style.display = 'block';
+                setTimeout(function(){ toast.style.display = 'none'; }, 1500);
+            });
+        }
         var _pwaPrompt = null;
         window.addEventListener('beforeinstallprompt', function(e) {
             e.preventDefault(); _pwaPrompt = e;
