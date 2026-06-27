@@ -177,7 +177,7 @@
         </div>
     </div>
 
-    <button id="pwaInstallBtn" onclick="installPwa()" style="display:none;margin-top:20px;width:100%;padding:12px;background:#fff5f5;border:1.5px solid #d32f2f;border-radius:12px;color:#d32f2f;font-size:0.95rem;font-weight:600;cursor:pointer;">📲 ホーム画面に追加</button>
+    <button id="pwaInstallBtn" onclick="installPwa()" style="margin-top:20px;width:100%;padding:12px;background:#fff5f5;border:1.5px solid #d32f2f;border-radius:12px;color:#d32f2f;font-size:0.95rem;font-weight:600;cursor:pointer;">📲 ホーム画面に追加</button>
 
     <div class="hub-footer">
         <a href="/">けんけつノート トップ</a>
@@ -188,16 +188,18 @@
         var _pwaPrompt = null;
         window.addEventListener('beforeinstallprompt', function(e) {
             e.preventDefault(); _pwaPrompt = e;
-            document.getElementById('pwaInstallBtn').style.display = 'block';
         });
         window.addEventListener('appinstalled', function() {
             _pwaPrompt = null;
             document.getElementById('pwaInstallBtn').style.display = 'none';
         });
         function installPwa() {
-            if (!_pwaPrompt) return;
-            _pwaPrompt.prompt();
-            _pwaPrompt.userChoice.then(function(){ _pwaPrompt = null; document.getElementById('pwaInstallBtn').style.display = 'none'; });
+            if (_pwaPrompt) {
+                _pwaPrompt.prompt();
+                _pwaPrompt.userChoice.then(function(){ _pwaPrompt = null; });
+            } else {
+                alert('Chromeのメニュー（⋮）→「ホーム画面に追加」をタップしてください。');
+            }
         }
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
     </script>
