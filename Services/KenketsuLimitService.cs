@@ -218,32 +218,40 @@ public class KenketsuLimitService
 
         for (var d = from; d <= to; d = d.AddDays(1))
         {
-            var last = sorted.LastOrDefault(r => r.DonationDate < d);
+            var lastWhole = sorted.LastOrDefault(r => r.DonationDate < d && r.IsWhole);
+            var lastComp  = sorted.LastOrDefault(r => r.DonationDate < d && !r.IsWhole);
+            var lastAny   = sorted.LastOrDefault(r => r.DonationDate < d);
             string? kind = null;
 
-            if (last != null)
+            if (lastAny != null)
             {
-                int days = d.DayNumber - last.DonationDate.DayNumber;
+                bool wholeBlocked = false;
+                bool compBlocked  = false;
 
-                bool wholeBlocked, compBlocked;
-                if (last.DonationType == "whole_200")
+                // 全血インターバル：最後の全血 + 最後の成分 を独立評価し、どちらかが引っかかればブロック
+                if (lastWhole != null)
                 {
-                    wholeBlocked = days < AnyAfter200Days;
-                    compBlocked  = days < AnyAfter200Days;
+                    int dw = d.DayNumber - lastWhole.DonationDate.DayNumber;
+                    if (lastWhole.DonationType == "whole_200")
+                        wholeBlocked |= dw < AnyAfter200Days;
+                    else
+                        wholeBlocked |= dw < (_gender == "female" ? WholeAfterWhole400FemaleDays : WholeAfterWhole400MaleDays);
                 }
-                else if (last.IsWhole) // whole_400
+                if (lastComp != null)
                 {
-                    // 女性は全血（400ml代表）を16週でブロック、男性は12週
-                    int wholeRequired = _gender == "female"
-                        ? WholeAfterWhole400FemaleDays
-                        : WholeAfterWhole400MaleDays;
-                    wholeBlocked = days < wholeRequired;
-                    compBlocked  = days < ComponentAfterWhole400Days;
+                    int dc = d.DayNumber - lastComp.DonationDate.DayNumber;
+                    wholeBlocked |= dc < AnyAfterComponentDays;
                 }
-                else
+
+                // 成分インターバルは直前の献血（全血・成分問わず）を起点にする
                 {
-                    wholeBlocked = days < AnyAfterComponentDays;
-                    compBlocked  = days < AnyAfterComponentDays;
+                    int daysFromLast = d.DayNumber - lastAny.DonationDate.DayNumber;
+                    if (lastAny.DonationType == "whole_200")
+                        compBlocked = daysFromLast < AnyAfter200Days;
+                    else if (lastAny.IsWhole)
+                        compBlocked = daysFromLast < ComponentAfterWhole400Days;
+                    else
+                        compBlocked = daysFromLast < AnyAfterComponentDays;
                 }
 
                 if (wholeBlocked && compBlocked)
@@ -335,6 +343,47 @@ public class KenketsuLimitService
         string donationType,
         IList<KenketsuRecord> others)
     {
+        var isWholeTarget = donationType is "whole_200" or "whole_400";
+
+        if (isWholeTarget)
+        {
+            // 全血を狙う場合：全血インターバルと成分インターバルを独立に評価し、厳しい方を返す
+            var lastWhole = others.Where(r => r.DonationDate < targetDate && r.IsWhole).MaxBy(r => r.DonationDate);
+            var lastComp  = others.Where(r => r.DonationDate < targetDate && !r.IsWhole).MaxBy(r => r.DonationDate);
+
+            string? wholeErr = null;
+            if (lastWhole != null)
+            {
+                int days = targetDate.DayNumber - lastWhole.DonationDate.DayNumber;
+                if (lastWhole.DonationType == "whole_200")
+                {
+                    if (days < AnyAfter200Days)
+                        wholeErr = $"直前の200ml全血献血（{lastWhole.DonationDate:yyyy/MM/dd}）から4週間後の {lastWhole.DonationDate.AddDays(AnyAfter200Days):yyyy/MM/dd} 以降に可能です。";
+                }
+                else
+                {
+                    int required = (donationType == "whole_400" && _gender == "female") ? WholeAfterWhole400FemaleDays : WholeAfterWhole400MaleDays;
+                    if (days < required)
+                        wholeErr = $"直前の400ml全血献血（{lastWhole.DonationDate:yyyy/MM/dd}）から{required / 7}週間後の {lastWhole.DonationDate.AddDays(required):yyyy/MM/dd} 以降に可能です。";
+                }
+            }
+            string? compErr = null;
+            if (lastComp != null)
+            {
+                int days = targetDate.DayNumber - lastComp.DonationDate.DayNumber;
+                if (days < AnyAfterComponentDays)
+                    compErr = $"直前の成分献血（{lastComp.DonationDate:yyyy/MM/dd}）から2週間後の {lastComp.DonationDate.AddDays(AnyAfterComponentDays):yyyy/MM/dd} 以降に可能です。";
+            }
+            // 両方ある場合は可能日が遅い方を返す
+            if (wholeErr != null && compErr != null)
+            {
+                var wholeOk = lastWhole!.DonationDate.AddDays(lastWhole.DonationType == "whole_200" ? AnyAfter200Days : ((donationType == "whole_400" && _gender == "female") ? WholeAfterWhole400FemaleDays : WholeAfterWhole400MaleDays));
+                var compOk  = lastComp!.DonationDate.AddDays(AnyAfterComponentDays);
+                return wholeOk >= compOk ? wholeErr : compErr;
+            }
+            return wholeErr ?? compErr;
+        }
+
         var last = others
             .Where(r => r.DonationDate < targetDate)
             .MaxBy(r => r.DonationDate);
