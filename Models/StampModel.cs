@@ -11,4 +11,5 @@ public class StampModel
     public bool IsShare { get; set; }
     public string ShareId { get; set; } = string.Empty;
     public bool ShowClosedDefault { get; set; } = false;
+    public bool ShareShowHistory { get; set; } = false;
 }

@@ -326,6 +326,14 @@
                         <a id="share-fb" target="_blank" title="Facebookでシェア"><img src="/image/share/facebook.svg" alt="Facebook"></a>
                         <a id="share-line" target="_blank" title="LINEでシェア"><img src="/image/share/line.svg" alt="LINE"></a>
                     </div>
+                    <div style="margin-top:10px; display:flex; align-items:center; gap:10px;">
+                        <span style="font-size:0.82em; color:#666;">🩸 シェアページで献血履歴を公開：</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="shareShowHistoryChk" @(Model.ShareShowHistory ? "checked" : "")>
+                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                            <span class="toggle-label" id="shareShowHistoryLabel">@(Model.ShareShowHistory ? "公開" : "非公開")</span>
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -445,6 +453,20 @@
                     <button id="modalDeleteBtn">削除</button>
                     <button id="modalCancelBtn">キャンセル</button>
                 </div>
+                <button id="modalHistoryBtn" style="display:none;margin-top:10px;width:100%;background:#fff5f5;border:1px solid #d32f2f;color:#d32f2f;border-radius:8px;padding:7px;cursor:pointer;font-size:0.85rem;">🩸 このルームの献血履歴</button>
+            </div>
+        </div>
+    }
+
+    @if (!Model.IsShare || Model.ShareShowHistory)
+    {
+        <div id="historyModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:2000; align-items:center; justify-content:center;">
+            <div style="background:#fff; border-radius:16px; padding:20px; width:min(92vw,360px); max-height:80vh; overflow-y:auto; box-shadow:0 8px 40px rgba(0,0,0,0.22);">
+                <div style="font-weight:700; font-size:1rem; color:#b71c1c; margin-bottom:12px;" id="historyModalTitle">献血履歴</div>
+                <div id="historyModalBody" style="font-size:0.88rem; color:#333;"></div>
+                <div style="margin-top:14px; text-align:right;">
+                    <button onclick="closeHistoryModal()" style="background:#f5f5f5; border:none; border-radius:8px; padding:7px 18px; cursor:pointer; font-size:0.88rem;">閉じる</button>
+                </div>
             </div>
         </div>
     }
@@ -528,6 +550,19 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                         body: `userId=@Model.User.UserId&showClosed=${checked}`
+                    });
+                });
+            }
+
+            const shareShowHistoryChk = document.getElementById('shareShowHistoryChk');
+            if (shareShowHistoryChk) {
+                shareShowHistoryChk.addEventListener('change', async () => {
+                    const checked = shareShowHistoryChk.checked;
+                    document.getElementById('shareShowHistoryLabel').textContent = checked ? '公開' : '非公開';
+                    await fetch('/Stamp/SaveShareShowHistory', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: `userId=@Model.User.UserId&showHistory=${checked}`
                     });
                 });
             }
@@ -637,6 +672,12 @@
                 const formatter = new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' });
                 input.value = visitedData[id]?.date ?? formatter.format(today).replaceAll('/', '-');
                 modal.style.display = 'flex';
+                const histBtn = document.getElementById('modalHistoryBtn');
+                if (histBtn && typeof openHistoryModal === 'function') {
+                    histBtn.style.display = 'block';
+                    const roomName = card.querySelector('.room-name')?.textContent ?? 'ルーム';
+                    histBtn.onclick = () => openHistoryModal(id, roomName);
+                }
             };
             const closeModal = () => { document.getElementById('dateModal').style.display = 'none'; };
 
@@ -755,6 +796,59 @@
 }
         });
     </script>
+
+@if (!Model.IsShare || Model.ShareShowHistory)
+{
+    <script>
+    const TYPE_LABEL_HISTORY = { whole_200:'全血200ml', whole_400:'全血400ml', plasma:'血漿成分', platelet:'血小板成分' };
+    const SHOW_HISTORY = @(Model.ShareShowHistory || !Model.IsShare ? "true" : "false");
+    const IS_SHARE_PAGE = @(Model.IsShare ? "true" : "false");
+    const HISTORY_USER_ID = '@Model.User.UserId';
+
+    function openHistoryModal(roomId, roomName) {
+        const modal = document.getElementById('historyModal');
+        const body  = document.getElementById('historyModalBody');
+        if (!modal) return;
+        document.getElementById('historyModalTitle').textContent = roomName + ' の献血履歴';
+        body.innerHTML = '<div style="color:#aaa;">読込中…</div>';
+        modal.style.display = 'flex';
+        fetch(`/Stamp/GetRoomHistory?userId=${HISTORY_USER_ID}&roomId=${roomId}`)
+            .then(r => r.json())
+            .then(list => {
+                if (list.length === 0) {
+                    body.innerHTML = '<div style="color:#aaa;">このルームでの献血記録はありません。</div>';
+                } else {
+                    body.innerHTML = list.map(r =>
+                        `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f0f0;">
+                            <span>${r.date}</span>
+                            <span style="color:#d32f2f;font-weight:600;">${TYPE_LABEL_HISTORY[r.type] ?? r.type}</span>
+                        </div>`
+                    ).join('');
+                }
+            });
+    }
+    function closeHistoryModal() {
+        document.getElementById('historyModal').style.display = 'none';
+    }
+    document.getElementById('historyModal').addEventListener('click', function(e) {
+        if (e.target === this) closeHistoryModal();
+    });
+
+    @if (Model.IsShare)
+    {
+        <text>
+        // シェアページではカードクリックで履歴モーダルを開く
+        document.querySelectorAll('.room-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const roomId   = card.dataset.id;
+                const roomName = card.querySelector('.room-name')?.textContent ?? 'ルーム';
+                openHistoryModal(roomId, roomName);
+            });
+        });
+        </text>
+    }
+    </script>
+}
 
 @if (!Model.IsShare) {
 <div class="nav-overlay" id="navOverlay" onclick="closeNav()"></div>

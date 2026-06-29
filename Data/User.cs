@@ -31,4 +31,7 @@ public partial class User
 
     [Column("migrated_from_ashiato")]
     public bool MigratedFromAshiato { get; set; } = false;
+
+    [Column("share_show_history")]
+    public bool ShareShowHistory { get; set; } = false;
 }

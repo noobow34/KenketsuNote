@@ -125,6 +125,31 @@ public class StampController : Controller
         return Ok();
     }
 
+    [HttpPost]
+    public IActionResult SaveShareShowHistory(string userId, bool showHistory)
+    {
+        User? u = _db.Users.Find(userId);
+        if (u == null) return NotFound();
+        u.ShareShowHistory = showHistory;
+        _db.SaveChanges();
+        return Ok();
+    }
+
+    [HttpGet]
+    public IActionResult GetRoomHistory(string userId, int roomId)
+    {
+        var records = _db.KenketsuRecords
+            .Where(r => r.UserId == userId && r.RoomId == roomId && r.RecordType == "actual")
+            .OrderByDescending(r => r.DonationDate)
+            .Select(r => new { r.DonationDate, r.DonationType })
+            .ToList()
+            .Select(r => new {
+                date = r.DonationDate.ToString("yyyy/MM/dd"),
+                type = r.DonationType
+            });
+        return Json(records);
+    }
+
     // ── スタンプデータAPI ────────────────────────────────────────
 
     [HttpGet]
@@ -198,10 +223,11 @@ public class StampController : Controller
 
         var model = new StampModel
         {
-            User             = u,
-            Rooms            = MasterData.Rooms,
-            IsShare          = isShare,
-            ShowClosedDefault = u.ShowClosedDefault
+            User              = u,
+            Rooms             = MasterData.Rooms,
+            IsShare           = isShare,
+            ShowClosedDefault = u.ShowClosedDefault,
+            ShareShowHistory  = u.ShareShowHistory,
         };
 
         int[] roomsPref = model.Rooms.Select(r => r.PrefId).Distinct().ToArray();
