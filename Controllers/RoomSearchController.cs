@@ -71,17 +71,17 @@ public class RoomSearchController : Controller
 
         if (wholeOnly)
         {
-            query = query.Where(r => (r.CanWhole200 == true || r.CanWhole400 == true)
-                                  && r.CanPlasma != true && r.CanPlatelet != true);
+            query = query.Where(r => r.CanWhole == true
+                                  && r.CanPlasma == false && r.CanPlatelet == false);
         }
         else if (plasmaOnly)
         {
             query = query.Where(r => r.CanPlasma == true
-                                  && r.CanWhole200 != true && r.CanWhole400 != true && r.CanPlatelet != true);
+                                  && r.CanWhole == false && r.CanPlatelet == false);
         }
         else
         {
-            if (canWhole == true)    query = query.Where(r => r.CanWhole200 == true || r.CanWhole400 == true);
+            if (canWhole == true)    query = query.Where(r => r.CanWhole == true);
             if (canPlasma == true)   query = query.Where(r => r.CanPlasma == true);
             if (canPlatelet == true) query = query.Where(r => r.CanPlatelet == true);
         }
@@ -146,8 +146,7 @@ public class RoomSearchController : Controller
             r.IsClosed,
             r.Remark,
             r.RoomUrl,
-            r.CanWhole200,
-            r.CanWhole400,
+            r.CanWhole,
             r.CanPlasma,
             r.CanPlatelet,
             r.ClosedDays,

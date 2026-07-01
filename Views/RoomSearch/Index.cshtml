@@ -23,6 +23,8 @@
         .disclaimer { font-size: 0.78rem; color: #999; margin: 0 0 14px; }
 
         .search-card { background: white; border-radius: 12px; padding: 16px; box-shadow: 0 1px 8px rgba(0,0,0,0.08); margin-bottom: 16px; }
+        #advancedFilters > summary { list-style: none; }
+        #advancedFilters > summary::-webkit-details-marker { display: none; }
         .search-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         @@media (max-width: 520px) { .search-grid { grid-template-columns: 1fr; } }
         .form-group { display: flex; flex-direction: column; gap: 4px; }
@@ -67,7 +69,8 @@
         .type-whole    { background: #fde8e8; color: #c0392b; border: 1px solid #f5c6c6; }
         .type-plasma   { background: #e8f4fd; color: #1565c0; border: 1px solid #bbdefb; }
         .type-platelet { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
-        .room-hours { font-size: 0.8rem; color: #555; margin-top: 5px; }
+        .room-hours { font-size: 0.8rem; color: #555; margin-top: 5px; display: flex; align-items: flex-start; }
+        .room-hours-label { white-space: nowrap; }
         .room-closed-days { font-size: 0.78rem; color: #888; margin-top: 3px; }
         .room-lunch-break { font-size: 0.78rem; color: #b45309; margin-top: 3px; }
         .room-remark { font-size: 0.78rem; color: #9b59b6; margin-top: 3px; }
@@ -119,13 +122,16 @@
             </div>
         </div>
 
+        <details id="advancedFilters" style="margin-top:12px;">
+            <summary style="cursor:pointer;font-size:0.9rem;color:#555;padding:4px 0;user-select:none;">▶ 詳細条件（献血種類・営業日・受付時間）</summary>
+
         <div style="margin-top:12px;">
             <div class="form-group">
                 <label>可能な献血の種類</label>
                 <div class="checkbox-group">
                     <label class="checkbox-label"><input type="checkbox" id="chkWhole" onchange="onDonationTypeChange()"> 全血</label>
-                    <label class="checkbox-label"><input type="checkbox" id="chkPlasma" onchange="onDonationTypeChange()"> 血漿成分</label>
-                    <label class="checkbox-label"><input type="checkbox" id="chkPlatelet" onchange="onDonationTypeChange()"> 血小板成分</label>
+                    <label class="checkbox-label"><input type="checkbox" id="chkPlasma" onchange="onDonationTypeChange()"> 血漿</label>
+                    <label class="checkbox-label"><input type="checkbox" id="chkPlatelet" onchange="onDonationTypeChange()"> 血小板</label>
                 </div>
                 <div class="checkbox-group" style="margin-top:6px;">
                     <label class="checkbox-label"><input type="radio" name="donationExclusive" value=""> 指定なし</label>
@@ -183,6 +189,8 @@
             </div>
         </div>
 
+        </details>
+
         <div class="search-footer">
             <button class="btn-search" onclick="doSearch()">🔍 検索</button>
             <button class="btn-reset" onclick="resetForm()">クリア</button>
@@ -201,6 +209,11 @@
 </div>
 
 <script>
+document.getElementById('advancedFilters').addEventListener('toggle', function() {
+    this.querySelector('summary').textContent =
+        (this.open ? '▼' : '▶') + ' 詳細条件（献血種類・営業日・受付時間）';
+});
+
 const ALL_PREFS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
     prefectures.Select(p => new { p.PrefId, p.CenterBlockId }).ToArray()
 ));
@@ -294,10 +307,9 @@ async function doSearch() {
 
 function renderRoom(r) {
     const types = [
-        r.canWhole200  ? '<span class="type-badge type-whole">全血200ml</span>'    : '',
-        r.canWhole400  ? '<span class="type-badge type-whole">全血400ml</span>'    : '',
-        r.canPlasma    ? '<span class="type-badge type-plasma">血漿成分</span>'    : '',
-        r.canPlatelet  ? '<span class="type-badge type-platelet">血小板成分</span>' : '',
+        r.canWhole ? '<span class="type-badge type-whole">全血</span>' : '',
+        r.canPlasma    ? '<span class="type-badge type-plasma">血漿</span>'    : '',
+        r.canPlatelet  ? '<span class="type-badge type-platelet">血小板</span>' : '',
     ].filter(Boolean).join('');
 
     const DAY_TYPE_NAMES = ['平日', '土日祝'];
@@ -329,7 +341,7 @@ function renderRoom(r) {
             </div>
             ${prefCity ? `<div class="room-pref-city">📍 ${escHtml(prefCity)}</div>` : ''}
             ${types ? `<div class="room-types">${types}</div>` : ''}
-            ${hoursLines.length ? `<div class="room-hours">🕐 受付：${hoursLines.join(' ／ ')}</div>` : ''}
+            ${hoursLines.length ? `<div class="room-hours"><span class="room-hours-label">🕐 受付：</span><span>${hoursLines.join('<br>')}</span></div>` : ''}
             ${r.closedDays ? `<div class="room-closed-days">🗓 定休日：${escHtml(r.closedDays)}</div>` : ''}
             ${r.remark ? `<div class="room-remark">📝 ${escHtml(r.remark)}</div>` : ''}
             ${r.roomUrl ? `<div class="room-url-link">🔗 <a href="${escHtml(r.roomUrl)}" target="_blank" rel="noopener">${escHtml(r.roomUrl)}</a></div>` : ''}

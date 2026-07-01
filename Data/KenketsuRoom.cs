@@ -38,11 +38,8 @@ public partial class KenketsuRoom
     [StringLength(50)]
     public string? City { get; set; }
 
-    [Column("can_whole_200")]
-    public bool? CanWhole200 { get; set; }
-
-    [Column("can_whole_400")]
-    public bool? CanWhole400 { get; set; }
+    [Column("can_whole")]
+    public bool? CanWhole { get; set; }
 
     [Column("can_plasma")]
     public bool? CanPlasma { get; set; }
