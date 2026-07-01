@@ -33,4 +33,27 @@ public partial class KenketsuRoom
     [Column("remark")]
     [StringLength(200)]
     public string? Remark { get; set; }
+
+    [Column("city")]
+    [StringLength(50)]
+    public string? City { get; set; }
+
+    [Column("can_whole")]
+    public bool? CanWhole { get; set; }
+
+    [Column("can_plasma")]
+    public bool? CanPlasma { get; set; }
+
+    [Column("can_platelet")]
+    public bool? CanPlatelet { get; set; }
+
+    [Column("closed_days")]
+    [StringLength(200)]
+    public string? ClosedDays { get; set; }
+
+    [Column("room_url")]
+    [StringLength(500)]
+    public string? RoomUrl { get; set; }
+
+    public ICollection<RoomBusinessHours> BusinessHours { get; set; } = [];
 }

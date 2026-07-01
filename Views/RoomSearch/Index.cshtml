@@ -1,0 +1,416 @@
+@using KenketsuNote.Data
+@{
+    Layout = null;
+    var centerBlocks = ViewBag.CenterBlocks as CenterBlock[] ?? [];
+    var prefectures  = ViewBag.Prefectures  as Pref[]        ?? [];
+}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="けんけつノート - 献血ルーム検索">
+    <title>献血ルーム検索 | けんけつノート</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif; background: #fafafa; color: #333; margin: 0; }
+        .topbar { background: #d32f2f; color: white; padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
+        .topbar a { color: white; text-decoration: none; font-size: 0.85rem; opacity: 0.85; }
+        .topbar a:hover { opacity: 1; }
+        .topbar-title { font-weight: 700; font-size: 1rem; }
+        .wrap { max-width: 860px; margin: 0 auto; padding: 16px; }
+        h1 { font-size: 1.2rem; font-weight: 700; color: #b71c1c; margin: 0 0 4px; }
+        .disclaimer { font-size: 0.78rem; color: #999; margin: 0 0 14px; }
+
+        .search-card { background: white; border-radius: 12px; padding: 16px; box-shadow: 0 1px 8px rgba(0,0,0,0.08); margin-bottom: 16px; }
+        #advancedFilters > summary { list-style: none; }
+        #advancedFilters > summary::-webkit-details-marker { display: none; }
+        .search-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        @@media (max-width: 520px) { .search-grid { grid-template-columns: 1fr; } }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group label { font-size: 0.78rem; font-weight: 600; color: #666; }
+        .form-ctrl { border: 1px solid #ddd; border-radius: 8px; padding: 7px 10px; font-size: 0.88rem; background: white; }
+        .form-ctrl:focus { outline: none; border-color: #d32f2f; }
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+        .checkbox-label { display: inline-flex; align-items: center; gap: 5px; font-size: 0.85rem; cursor: pointer; }
+        .search-footer { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+        .btn-search { background: #d32f2f; color: white; border: none; border-radius: 20px; padding: 9px 28px; font-size: 0.9rem; font-weight: 700; cursor: pointer; }
+        .btn-search:hover { background: #b71c1c; }
+        .btn-reset { background: #f5f5f5; color: #666; border: none; border-radius: 20px; padding: 9px 18px; font-size: 0.85rem; cursor: pointer; }
+        .include-closed-label { font-size: 0.82rem; color: #888; display: flex; align-items: center; gap: 5px; cursor: pointer; }
+        .time-range { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .time-range .form-ctrl { width: 100px; }
+        .time-label { font-size: 0.82rem; color: #555; white-space: nowrap; }
+        /* カスタムマルチセレクト */
+        .ms-wrap { position: relative; }
+        .ms-btn { width: 100%; text-align: left; border: 1px solid #ddd; border-radius: 8px; padding: 7px 28px 7px 10px; font-size: 0.88rem; background: white; cursor: pointer; color: #333; position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ms-btn::after { content: '▾'; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #aaa; font-size: 0.8rem; pointer-events: none; }
+        .ms-btn.open { border-color: #d32f2f; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+        .ms-dropdown { display: none; position: absolute; left: 0; right: 0; top: 100%; background: white; border: 1px solid #d32f2f; border-top: none; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .ms-dropdown.open { display: block; }
+        .ms-option { display: flex; align-items: center; gap: 8px; padding: 7px 12px; font-size: 0.85rem; cursor: pointer; }
+        .ms-option:hover { background: #fff5f5; }
+        .ms-option input[type=checkbox] { cursor: pointer; accent-color: #d32f2f; }
+
+        .result-header { font-size: 0.85rem; color: #888; margin-bottom: 10px; }
+        .result-list { display: flex; flex-direction: column; gap: 10px; }
+        .room-item { background: white; border-radius: 10px; padding: 14px 16px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); display: flex; gap: 14px; align-items: flex-start; }
+        .room-item.closed { opacity: 0.6; }
+        .room-thumb { width: 64px; height: 48px; object-fit: cover; border-radius: 6px; flex-shrink: 0; background: #f0f0f0; }
+        .room-info { flex: 1; min-width: 0; }
+        .room-name-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .room-name { font-weight: 700; font-size: 0.95rem; }
+        .room-name a { color: inherit; text-decoration: none; }
+        .room-name a:hover { text-decoration: underline; color: #d32f2f; }
+        .badge-closed { background: #f5f5f5; color: #999; border: 1px solid #ddd; border-radius: 4px; font-size: 0.7rem; padding: 1px 6px; }
+        .room-pref-city { font-size: 0.78rem; color: #888; margin-top: 2px; }
+        .room-types { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+        .type-badge { font-size: 0.72rem; font-weight: 600; padding: 2px 7px; border-radius: 4px; }
+        .type-whole    { background: #fde8e8; color: #c0392b; border: 1px solid #f5c6c6; }
+        .type-plasma   { background: #e8f4fd; color: #1565c0; border: 1px solid #bbdefb; }
+        .type-platelet { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+        .room-hours { font-size: 0.8rem; color: #555; margin-top: 5px; display: flex; align-items: flex-start; }
+        .room-hours-label { white-space: nowrap; }
+        .room-closed-days { font-size: 0.78rem; color: #888; margin-top: 3px; }
+        .room-lunch-break { font-size: 0.78rem; color: #b45309; margin-top: 3px; }
+        .room-remark { font-size: 0.78rem; color: #9b59b6; margin-top: 3px; }
+        .room-url-link { font-size: 0.78rem; margin-top: 3px; }
+        .room-url-link a { color: #1565c0; text-decoration: none; }
+        .room-url-link a:hover { text-decoration: underline; }
+        .no-result { text-align: center; color: #aaa; padding: 40px 0; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+<div class="topbar">
+    <a href="/">🏡 トップ</a>
+    <span style="opacity:.4;">›</span>
+    <span class="topbar-title">🔍 献血ルーム検索</span>
+</div>
+<div class="wrap">
+    <h1>献血ルーム検索</h1>
+    <p class="disclaimer">⚠ 掲載情報は最新ではない可能性があります。最終的には公式サイトをご確認ください。</p>
+
+    <div class="search-card">
+        <div class="search-grid">
+            <div class="form-group">
+                <label>ブロック（地区）</label>
+                <select id="centerBlockSel" class="form-ctrl" onchange="onBlockChange()">
+                    <option value="">すべて</option>
+                    @foreach (var cb in centerBlocks.OrderBy(c => c.DisplayOrder))
+                    {
+                        <option value="@cb.CenterBlockId">@cb.CenterBlockName</option>
+                    }
+                </select>
+            </div>
+            <div class="form-group">
+                <label>都道府県</label>
+                <select id="prefSel" class="form-ctrl">
+                    <option value="">すべて</option>
+                    @foreach (var p in prefectures.OrderBy(p => p.DisplayOrder))
+                    {
+                        <option value="@p.PrefId" data-block="@p.CenterBlockId">@p.PrefName</option>
+                    }
+                </select>
+            </div>
+            <div class="form-group">
+                <label>ルーム名（部分一致）</label>
+                <input type="text" id="roomNameInput" class="form-ctrl" placeholder="例：梅田">
+            </div>
+            <div class="form-group">
+                <label>市町村（部分一致）</label>
+                <input type="text" id="cityInput" class="form-ctrl" placeholder="例：横浜市">
+            </div>
+        </div>
+
+        <details id="advancedFilters" style="margin-top:12px;">
+            <summary style="cursor:pointer;font-size:0.9rem;color:#555;padding:4px 0;user-select:none;">▶ 詳細条件（献血種類・営業日・受付時間）</summary>
+
+        <div style="margin-top:12px;">
+            <div class="form-group">
+                <label>可能な献血の種類</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-label"><input type="checkbox" id="chkWhole" onchange="onDonationTypeChange()"> 全血</label>
+                    <label class="checkbox-label"><input type="checkbox" id="chkPlasma" onchange="onDonationTypeChange()"> 血漿</label>
+                    <label class="checkbox-label"><input type="checkbox" id="chkPlatelet" onchange="onDonationTypeChange()"> 血小板</label>
+                </div>
+                <div class="checkbox-group" style="margin-top:6px;">
+                    <label class="checkbox-label"><input type="radio" name="donationExclusive" value=""> 指定なし</label>
+                    <label class="checkbox-label"><input type="radio" name="donationExclusive" value="wholeOnly"> 全血のみ</label>
+                    <label class="checkbox-label"><input type="radio" name="donationExclusive" value="plasmaOnly"> 血漿のみ</label>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top:12px;" class="search-grid">
+            <div class="form-group">
+                <label>営業日（この曜日に営業）</label>
+                <div class="ms-wrap" id="openDowWrap">
+                    <button type="button" class="ms-btn" id="openDowBtn" onclick="msToggle('openDow')">指定なし</button>
+                    <div class="ms-dropdown" id="openDowDrop">
+                        <label class="ms-option"><input type="checkbox" data-ms="openDow" value="1"> 月</label>
+                        <label class="ms-option"><input type="checkbox" data-ms="openDow" value="2"> 火</label>
+                        <label class="ms-option"><input type="checkbox" data-ms="openDow" value="3"> 水</label>
+                        <label class="ms-option"><input type="checkbox" data-ms="openDow" value="4"> 木</label>
+                        <label class="ms-option"><input type="checkbox" data-ms="openDow" value="5"> 金</label>
+                        <label class="ms-option"><input type="checkbox" data-ms="openDow" value="6"> 土</label>
+                        <label class="ms-option"><input type="checkbox" data-ms="openDow" value="0"> 日</label>
+                        <label class="ms-option"><input type="checkbox" data-ms="openDow" value="irregular"> 不定休</label>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>昼中断なし（この区分に昼中断なし）</label>
+                <div class="ms-wrap" id="noLunchBreakDowWrap">
+                    <button type="button" class="ms-btn" id="noLunchBreakDowBtn" onclick="msToggle('noLunchBreakDow')">指定なし</button>
+                    <div class="ms-dropdown" id="noLunchBreakDowDrop">
+                        <label class="ms-option"><input type="checkbox" data-ms="noLunchBreakDow" value="平日"> 平日</label>
+                        <label class="ms-option"><input type="checkbox" data-ms="noLunchBreakDow" value="土日祝"> 土日祝</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top:12px;">
+            <div class="form-group">
+                <label>受付時間</label>
+                <div class="checkbox-group" style="margin-top:4px;">
+                    <label class="checkbox-label"><input type="radio" name="timeDayType" value=""> 両方</label>
+                    <label class="checkbox-label"><input type="radio" name="timeDayType" value="0"> 平日</label>
+                    <label class="checkbox-label"><input type="radio" name="timeDayType" value="1"> 土日祝</label>
+                </div>
+                <div style="display:grid;grid-template-columns:auto auto auto;align-items:center;gap:6px 10px;margin-top:6px;font-size:0.83rem;width:fit-content;">
+                    <span style="color:#c0392b;font-weight:600;">全血</span>
+                    <div class="time-range"><span class="time-label">この時刻までに受付開始</span><input type="time" id="wholeOpenByInput" class="form-ctrl"></div>
+                    <div class="time-range"><span class="time-label">この時刻以降まで受付</span><input type="time" id="wholeCloseAfterInput" class="form-ctrl"></div>
+                    <span style="color:#1565c0;font-weight:600;">成分</span>
+                    <div class="time-range"><span class="time-label">この時刻までに受付開始</span><input type="time" id="compOpenByInput" class="form-ctrl"></div>
+                    <div class="time-range"><span class="time-label">この時刻以降まで受付</span><input type="time" id="compCloseAfterInput" class="form-ctrl"></div>
+                </div>
+            </div>
+        </div>
+
+        </details>
+
+        <div class="search-footer">
+            <button class="btn-search" onclick="doSearch()">🔍 検索</button>
+            <button class="btn-reset" onclick="resetForm()">クリア</button>
+            <label class="include-closed-label">
+                <input type="checkbox" id="chkIncludeClosed"> 閉鎖済みも含む
+            </label>
+        </div>
+    </div>
+
+    <div id="resultArea" style="display:none;">
+        <div class="result-header" id="resultHeader"></div>
+        <div class="result-list" id="resultList"></div>
+    </div>
+    <div id="noResult" class="no-result" style="display:none;">条件に一致するルームが見つかりませんでした。</div>
+    <div id="initialMsg" class="no-result">条件を選んで検索してください。</div>
+</div>
+
+<script>
+document.getElementById('advancedFilters').addEventListener('toggle', function() {
+    this.querySelector('summary').textContent =
+        (this.open ? '▼' : '▶') + ' 詳細条件（献血種類・営業日・受付時間）';
+});
+
+const ALL_PREFS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+    prefectures.Select(p => new { p.PrefId, p.CenterBlockId }).ToArray()
+));
+
+function onBlockChange() {
+    const blockId = document.getElementById('centerBlockSel').value;
+    const prefSel = document.getElementById('prefSel');
+    Array.from(prefSel.options).forEach(opt => {
+        if (!opt.value) { opt.style.display = ''; return; }
+        opt.style.display = (!blockId || opt.dataset.block === blockId) ? '' : 'none';
+    });
+    if (prefSel.selectedOptions[0]?.style.display === 'none') prefSel.value = '';
+}
+
+function resetForm() {
+    document.getElementById('centerBlockSel').value = '';
+    document.getElementById('prefSel').value = '';
+    document.getElementById('roomNameInput').value = '';
+    document.getElementById('cityInput').value = '';
+    document.getElementById('chkWhole').checked = false;
+    document.getElementById('chkPlasma').checked = false;
+    document.getElementById('chkPlatelet').checked = false;
+    document.getElementById('chkIncludeClosed').checked = false;
+    document.querySelector('input[name="timeDayType"][value=""]').checked = true;
+    document.getElementById('wholeOpenByInput').value = '';
+    document.getElementById('wholeCloseAfterInput').value = '';
+    document.getElementById('compOpenByInput').value = '';
+    document.getElementById('compCloseAfterInput').value = '';
+    ['chkWhole','chkPlasma','chkPlatelet'].forEach(id => document.getElementById(id).disabled = false);
+    document.querySelector('input[name="donationExclusive"][value=""]').checked = true;
+    msReset('openDow');
+    msReset('noLunchBreakDow');
+    onBlockChange();
+    document.getElementById('resultArea').style.display = 'none';
+    document.getElementById('noResult').style.display = 'none';
+    document.getElementById('initialMsg').style.display = 'block';
+}
+
+async function doSearch() {
+    const params = new URLSearchParams();
+    const blockId       = document.getElementById('centerBlockSel').value;
+    const prefId        = document.getElementById('prefSel').value;
+    const roomName      = document.getElementById('roomNameInput').value.trim();
+    const city          = document.getElementById('cityInput').value.trim();
+    const openDows        = msGetValues('openDow');
+    const noLunchBreakDows = msGetValues('noLunchBreakDow');
+    const timeDayType     = document.querySelector('input[name="timeDayType"]:checked')?.value ?? '';
+    const wholeOpenBy     = document.getElementById('wholeOpenByInput').value;
+    const wholeCloseAfter = document.getElementById('wholeCloseAfterInput').value;
+    const compOpenBy      = document.getElementById('compOpenByInput').value;
+    const compCloseAfter  = document.getElementById('compCloseAfterInput').value;
+    const includeClosed = document.getElementById('chkIncludeClosed').checked;
+    const exclusive     = document.querySelector('input[name="donationExclusive"]:checked')?.value ?? '';
+
+    if (prefId)    params.append('prefId', prefId);
+    else if (blockId) params.append('centerBlockId', blockId);
+    if (roomName)  params.append('roomName', roomName);
+    if (city)      params.append('city', city);
+
+    if (exclusive === 'wholeOnly')       params.append('wholeOnly', 'true');
+    else if (exclusive === 'plasmaOnly') params.append('plasmaOnly', 'true');
+    else {
+        if (document.getElementById('chkWhole').checked)    params.append('canWhole',   'true');
+        if (document.getElementById('chkPlasma').checked)   params.append('canPlasma',   'true');
+        if (document.getElementById('chkPlatelet').checked) params.append('canPlatelet', 'true');
+    }
+
+    if (openDows.length)        params.append('openDows',        openDows.join(','));
+    if (noLunchBreakDows.length) params.append('noLunchBreakDows', noLunchBreakDows.join(','));
+    if (timeDayType !== '') params.append('timeDayType', timeDayType);
+    if (wholeOpenBy)     params.append('wholeOpenBy',     wholeOpenBy);
+    if (wholeCloseAfter) params.append('wholeCloseAfter', wholeCloseAfter);
+    if (compOpenBy)      params.append('compOpenBy',      compOpenBy);
+    if (compCloseAfter)  params.append('compCloseAfter',  compCloseAfter);
+    if (includeClosed) params.append('includeClosed', 'true');
+
+    const res  = await fetch('/rooms/search?' + params.toString());
+    const list = await res.json();
+
+    document.getElementById('initialMsg').style.display = 'none';
+    if (list.length === 0) {
+        document.getElementById('resultArea').style.display = 'none';
+        document.getElementById('noResult').style.display = 'block';
+        return;
+    }
+    document.getElementById('noResult').style.display = 'none';
+    document.getElementById('resultArea').style.display = 'block';
+    document.getElementById('resultHeader').textContent = list.length + ' 件見つかりました';
+    document.getElementById('resultList').innerHTML = list.map(r => renderRoom(r)).join('');
+}
+
+function renderRoom(r) {
+    const types = [
+        r.canWhole ? '<span class="type-badge type-whole">全血</span>' : '',
+        r.canPlasma    ? '<span class="type-badge type-plasma">血漿</span>'    : '',
+        r.canPlatelet  ? '<span class="type-badge type-platelet">血小板</span>' : '',
+    ].filter(Boolean).join('');
+
+    const DAY_TYPE_NAMES = ['平日', '土日祝'];
+    const hoursLines = (r.businessHours || []).map(h => {
+        const day = DAY_TYPE_NAMES[h.dayType] ?? '';
+        const wholeLunch = (h.wholeLunchStart && h.wholeLunchEnd)
+            ? ` <span style="color:#b45309;font-size:0.75em;">昼中断${h.wholeLunchStart}〜${h.wholeLunchEnd}</span>` : '';
+        const compLunch  = (h.compLunchStart && h.compLunchEnd)
+            ? ` <span style="color:#b45309;font-size:0.75em;">昼中断${h.compLunchStart}〜${h.compLunchEnd}</span>` : '';
+        const whole = (h.wholeReceptionStart && h.wholeReceptionEnd)
+            ? `<span style="color:#c0392b;">全血</span> ${h.wholeReceptionStart}〜${h.wholeReceptionEnd}${wholeLunch}` : '';
+        const comp  = (h.compReceptionStart && h.compReceptionEnd)
+            ? `<span style="color:#1565c0;">成分</span> ${h.compReceptionStart}〜${h.compReceptionEnd}${compLunch}` : '';
+        const times = [whole, comp].filter(Boolean).join('　');
+        return times ? `${day}：${times}` : '';
+    }).filter(Boolean);
+
+    const prefCity = [r.prefName, r.city].filter(Boolean).join(' › ');
+    const nameHtml = r.roomUrl
+        ? `<a href="${escHtml(r.roomUrl)}" target="_blank" rel="noopener">${escHtml(r.roomName)}</a>`
+        : escHtml(r.roomName);
+
+    return `<div class="room-item${r.isClosed ? ' closed' : ''}">
+        <img class="room-thumb" src="${r.imagePath ?? '/image/rooms/noimage.png'}" alt="${escHtml(r.roomName)}" onerror="this.src='/image/rooms/noimage.png'">
+        <div class="room-info">
+            <div class="room-name-row">
+                <span class="room-name">${nameHtml}</span>
+                ${r.isClosed ? '<span class="badge-closed">閉鎖済み</span>' : ''}
+            </div>
+            ${prefCity ? `<div class="room-pref-city">📍 ${escHtml(prefCity)}</div>` : ''}
+            ${types ? `<div class="room-types">${types}</div>` : ''}
+            ${hoursLines.length ? `<div class="room-hours"><span class="room-hours-label">🕐 受付：</span><span>${hoursLines.join('<br>')}</span></div>` : ''}
+            ${r.closedDays ? `<div class="room-closed-days">🗓 定休日：${escHtml(r.closedDays)}</div>` : ''}
+            ${r.remark ? `<div class="room-remark">📝 ${escHtml(r.remark)}</div>` : ''}
+            ${r.roomUrl ? `<div class="room-url-link">🔗 <a href="${escHtml(r.roomUrl)}" target="_blank" rel="noopener">${escHtml(r.roomUrl)}</a></div>` : ''}
+        </div>
+    </div>`;
+}
+
+function escHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── カスタムマルチセレクト ──────────────────────────────────
+const DAY_LABEL = { '0':'日','1':'月','2':'火','3':'水','4':'木','5':'金','6':'土','irregular':'不定休','平日':'平日','土日祝':'土日祝' };
+
+function msToggle(name) {
+    const btn  = document.getElementById(name + 'Btn');
+    const drop = document.getElementById(name + 'Drop');
+    const isOpen = drop.classList.contains('open');
+    msCloseAll();
+    if (!isOpen) { btn.classList.add('open'); drop.classList.add('open'); }
+}
+
+function msCloseAll() {
+    document.querySelectorAll('.ms-btn').forEach(b => b.classList.remove('open'));
+    document.querySelectorAll('.ms-dropdown').forEach(d => d.classList.remove('open'));
+}
+
+function msGetValues(name) {
+    return [...document.querySelectorAll(`input[data-ms="${name}"]:checked`)].map(c => c.value);
+}
+
+function msUpdateLabel(name) {
+    const vals = msGetValues(name);
+    const btn  = document.getElementById(name + 'Btn');
+    btn.textContent = vals.length ? vals.map(v => DAY_LABEL[v] ?? v).join('・') : '指定なし';
+}
+
+function msReset(name) {
+    document.querySelectorAll(`input[data-ms="${name}"]`).forEach(c => c.checked = false);
+    msUpdateLabel(name);
+}
+
+document.querySelectorAll('.ms-option input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', () => msUpdateLabel(cb.dataset.ms));
+});
+
+// ドロップダウン外クリックで閉じる
+document.addEventListener('click', e => {
+    if (!e.target.closest('.ms-wrap')) msCloseAll();
+});
+
+function onDonationTypeChange() {
+    document.querySelector('input[name="donationExclusive"][value=""]').checked = true;
+}
+
+document.querySelectorAll('input[name="donationExclusive"]').forEach(r => {
+    r.addEventListener('change', () => {
+        const isExclusive = r.value !== '';
+        ['chkWhole','chkPlasma','chkPlatelet'].forEach(id => {
+            const el = document.getElementById(id);
+            if (isExclusive) { el.checked = false; el.disabled = true; }
+            else { el.disabled = false; }
+        });
+    });
+});
+
+document.querySelector('input[name="donationExclusive"][value=""]').checked = true;
+document.querySelector('input[name="timeDayType"][value=""]').checked = true;
+</script>
+</body>
+</html>
