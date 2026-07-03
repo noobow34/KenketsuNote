@@ -78,8 +78,9 @@
         .hg-type { font-weight: 600; white-space: nowrap; }
         .hg-whole { color: #c0392b; }
         .hg-comp  { color: #1565c0; }
+        .hg-time-cell { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 4px; min-width: 0; }
         .hg-time  { white-space: nowrap; }
-        .hg-lunch { color: #b45309; font-size: 0.75em; }
+        .hg-lunch { color: #b45309; font-size: 0.75em; white-space: nowrap; }
         .room-closed-days { font-size: 0.78rem; color: #888; margin-top: 3px; }
         .room-lunch-break { font-size: 0.78rem; color: #b45309; margin-top: 3px; }
         .room-remark { font-size: 0.78rem; color: #9b59b6; margin-top: 3px; }
@@ -326,20 +327,22 @@ function renderRoom(r) {
     for (const h of (r.businessHours || [])) {
         const day = DAY_TYPE_NAMES[h.dayType] ?? '';
         const wLunch = (h.wholeLunchStart && h.wholeLunchEnd)
-            ? `<span class="hg-lunch"> 昼中断${h.wholeLunchStart}〜${h.wholeLunchEnd}</span>` : '';
+            ? `<span class="hg-lunch">昼中断${h.wholeLunchStart}〜${h.wholeLunchEnd}</span>` : '';
         const cLunch = (h.compLunchStart  && h.compLunchEnd)
-            ? `<span class="hg-lunch"> 昼中断${h.compLunchStart}〜${h.compLunchEnd}</span>`   : '';
+            ? `<span class="hg-lunch">昼中断${h.compLunchStart}〜${h.compLunchEnd}</span>`   : '';
         let first = true;
         if (h.wholeReceptionStart && h.wholeReceptionEnd) {
-            hoursRows.push({ day: first ? day : '', cls: 'whole', type: '全血', time: `${h.wholeReceptionStart}〜${h.wholeReceptionEnd}${wLunch}` });
+            hoursRows.push({ day: first ? day : '', cls: 'whole', type: '全血', time: `${h.wholeReceptionStart}〜${h.wholeReceptionEnd}`, lunch: wLunch });
             first = false;
         }
         if (h.compReceptionStart && h.compReceptionEnd) {
-            hoursRows.push({ day: first ? day : '', cls: 'comp',  type: '成分', time: `${h.compReceptionStart}〜${h.compReceptionEnd}${cLunch}` });
+            hoursRows.push({ day: first ? day : '', cls: 'comp',  type: '成分', time: `${h.compReceptionStart}〜${h.compReceptionEnd}`, lunch: cLunch });
         }
     }
     const hoursHtml = hoursRows.map(row =>
-        `<span class="hg-day">${row.day ? row.day + '：' : '　　'}</span><span class="hg-type hg-${row.cls}">${row.type}</span><span class="hg-time"> ${row.time}</span>`
+        `<span class="hg-day">${row.day ? row.day + '：' : '　　'}</span>` +
+        `<span class="hg-type hg-${row.cls}">${row.type}</span>` +
+        `<span class="hg-time-cell"><span class="hg-time">${row.time}</span>${row.lunch}</span>`
     ).join('');
 
     const prefCity = [r.prefName, r.city].filter(Boolean).join(' › ');
