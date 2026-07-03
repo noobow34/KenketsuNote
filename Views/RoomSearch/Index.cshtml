@@ -323,7 +323,7 @@ function renderRoom(r) {
             ? `<span style="color:#c0392b;">全血</span> ${h.wholeReceptionStart}〜${h.wholeReceptionEnd}${wholeLunch}` : '';
         const comp  = (h.compReceptionStart && h.compReceptionEnd)
             ? `<span style="color:#1565c0;">成分</span> ${h.compReceptionStart}〜${h.compReceptionEnd}${compLunch}` : '';
-        const times = [whole, comp].filter(Boolean).join('　');
+        const times = [whole, comp].filter(Boolean).join('<br>　　');
         return times ? `${day}：${times}` : '';
     }).filter(Boolean);
 
@@ -344,7 +344,7 @@ function renderRoom(r) {
             ${hoursLines.length ? `<div class="room-hours"><span class="room-hours-label">🕐 受付：</span><span>${hoursLines.join('<br>')}</span></div>` : ''}
             ${r.closedDays ? `<div class="room-closed-days">🗓 定休日：${escHtml(r.closedDays)}</div>` : ''}
             ${r.remark ? `<div class="room-remark">📝 ${escHtml(r.remark)}</div>` : ''}
-            ${r.roomUrl ? `<div class="room-url-link">🔗 <a href="${escHtml(r.roomUrl)}" target="_blank" rel="noopener">${escHtml(r.roomUrl)}</a></div>` : ''}
+            ${r.roomUrl ? `<div class="room-url-link">🔗 <a href="${escHtml(r.roomUrl)}" target="_blank" rel="noopener">公式サイト</a></div>` : ''}
         </div>
     </div>`;
 }
