@@ -60,17 +60,26 @@
         .room-info { flex: 1; min-width: 0; }
         .room-name-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
         .room-name { font-weight: 700; font-size: 0.95rem; }
-        .room-name a { color: inherit; text-decoration: none; }
-        .room-name a:hover { text-decoration: underline; color: #d32f2f; }
+        .room-name a { color: inherit; text-decoration: underline; text-decoration-color: #aaa; }
+        .room-name a::after { content: ' ↗'; font-size: 0.75em; color: #aaa; }
+        .room-name a:hover { color: #d32f2f; text-decoration-color: #d32f2f; }
         .badge-closed { background: #f5f5f5; color: #999; border: 1px solid #ddd; border-radius: 4px; font-size: 0.7rem; padding: 1px 6px; }
-        .room-pref-city { font-size: 0.78rem; color: #888; margin-top: 2px; }
-        .room-types { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+        .room-pref-city-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+        .room-pref-city { font-size: 0.78rem; color: #888; }
+        .room-types { display: flex; flex-wrap: wrap; gap: 4px; }
         .type-badge { font-size: 0.72rem; font-weight: 600; padding: 2px 7px; border-radius: 4px; }
         .type-whole    { background: #fde8e8; color: #c0392b; border: 1px solid #f5c6c6; }
         .type-plasma   { background: #e8f4fd; color: #1565c0; border: 1px solid #bbdefb; }
         .type-platelet { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
-        .room-hours { font-size: 0.8rem; color: #555; margin-top: 5px; display: flex; align-items: flex-start; }
+        .room-hours { font-size: 0.8rem; color: #555; margin-top: 5px; display: flex; align-items: flex-start; gap: 4px; }
         .room-hours-label { white-space: nowrap; }
+        .hours-grid { display: grid; grid-template-columns: max-content max-content 1fr; gap: 0 6px; align-items: baseline; }
+        .hg-day { white-space: nowrap; color: #555; }
+        .hg-type { font-weight: 600; white-space: nowrap; }
+        .hg-whole { color: #c0392b; }
+        .hg-comp  { color: #1565c0; }
+        .hg-time  { white-space: nowrap; }
+        .hg-lunch { color: #b45309; font-size: 0.75em; }
         .room-closed-days { font-size: 0.78rem; color: #888; margin-top: 3px; }
         .room-lunch-break { font-size: 0.78rem; color: #b45309; margin-top: 3px; }
         .room-remark { font-size: 0.78rem; color: #9b59b6; margin-top: 3px; }
@@ -313,19 +322,25 @@ function renderRoom(r) {
     ].filter(Boolean).join('');
 
     const DAY_TYPE_NAMES = ['平日', '土日祝'];
-    const hoursLines = (r.businessHours || []).map(h => {
+    const hoursRows = [];
+    for (const h of (r.businessHours || [])) {
         const day = DAY_TYPE_NAMES[h.dayType] ?? '';
-        const wholeLunch = (h.wholeLunchStart && h.wholeLunchEnd)
-            ? ` <span style="color:#b45309;font-size:0.75em;">昼中断${h.wholeLunchStart}〜${h.wholeLunchEnd}</span>` : '';
-        const compLunch  = (h.compLunchStart && h.compLunchEnd)
-            ? ` <span style="color:#b45309;font-size:0.75em;">昼中断${h.compLunchStart}〜${h.compLunchEnd}</span>` : '';
-        const whole = (h.wholeReceptionStart && h.wholeReceptionEnd)
-            ? `<span style="color:#c0392b;">全血</span> ${h.wholeReceptionStart}〜${h.wholeReceptionEnd}${wholeLunch}` : '';
-        const comp  = (h.compReceptionStart && h.compReceptionEnd)
-            ? `<span style="color:#1565c0;">成分</span> ${h.compReceptionStart}〜${h.compReceptionEnd}${compLunch}` : '';
-        const times = [whole, comp].filter(Boolean).join('　');
-        return times ? `${day}：${times}` : '';
-    }).filter(Boolean);
+        const wLunch = (h.wholeLunchStart && h.wholeLunchEnd)
+            ? `<span class="hg-lunch"> 昼中断${h.wholeLunchStart}〜${h.wholeLunchEnd}</span>` : '';
+        const cLunch = (h.compLunchStart  && h.compLunchEnd)
+            ? `<span class="hg-lunch"> 昼中断${h.compLunchStart}〜${h.compLunchEnd}</span>`   : '';
+        let first = true;
+        if (h.wholeReceptionStart && h.wholeReceptionEnd) {
+            hoursRows.push({ day: first ? day : '', cls: 'whole', type: '全血', time: `${h.wholeReceptionStart}〜${h.wholeReceptionEnd}${wLunch}` });
+            first = false;
+        }
+        if (h.compReceptionStart && h.compReceptionEnd) {
+            hoursRows.push({ day: first ? day : '', cls: 'comp',  type: '成分', time: `${h.compReceptionStart}〜${h.compReceptionEnd}${cLunch}` });
+        }
+    }
+    const hoursHtml = hoursRows.map(row =>
+        `<span class="hg-day">${row.day ? row.day + '：' : '　　'}</span><span class="hg-type hg-${row.cls}">${row.type}</span><span class="hg-time"> ${row.time}</span>`
+    ).join('');
 
     const prefCity = [r.prefName, r.city].filter(Boolean).join(' › ');
     const nameHtml = r.roomUrl
@@ -339,12 +354,13 @@ function renderRoom(r) {
                 <span class="room-name">${nameHtml}</span>
                 ${r.isClosed ? '<span class="badge-closed">閉鎖済み</span>' : ''}
             </div>
-            ${prefCity ? `<div class="room-pref-city">📍 ${escHtml(prefCity)}</div>` : ''}
-            ${types ? `<div class="room-types">${types}</div>` : ''}
-            ${hoursLines.length ? `<div class="room-hours"><span class="room-hours-label">🕐 受付：</span><span>${hoursLines.join('<br>')}</span></div>` : ''}
+            <div class="room-pref-city-row">
+                ${prefCity ? `<span class="room-pref-city">📍 ${escHtml(prefCity)}</span>` : ''}
+                ${types ? `<span class="room-types">${types}</span>` : ''}
+            </div>
+            ${hoursHtml ? `<div class="room-hours"><span class="room-hours-label">🕐 受付：</span><div class="hours-grid">${hoursHtml}</div></div>` : ''}
             ${r.closedDays ? `<div class="room-closed-days">🗓 定休日：${escHtml(r.closedDays)}</div>` : ''}
             ${r.remark ? `<div class="room-remark">📝 ${escHtml(r.remark)}</div>` : ''}
-            ${r.roomUrl ? `<div class="room-url-link">🔗 <a href="${escHtml(r.roomUrl)}" target="_blank" rel="noopener">${escHtml(r.roomUrl)}</a></div>` : ''}
         </div>
     </div>`;
 }
