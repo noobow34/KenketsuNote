@@ -24,7 +24,7 @@ public class RoomSearchController : Controller
     }
 
     [HttpGet("search")]
-    public IActionResult Search(
+    public async Task<IActionResult> Search(
         int? centerBlockId = null,
         int? prefId = null,
         string? roomName = null,
@@ -167,6 +167,45 @@ public class RoomSearchController : Controller
                 .ToList(),
         });
 
-        return Json(result);
+        var resultList = result.ToList();
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var log = new RoomSearchLog
+                {
+                    CenterBlockId    = centerBlockId,
+                    PrefId           = prefId,
+                    RoomName         = roomName,
+                    City             = city,
+                    CanWhole         = canWhole,
+                    CanPlasma        = canPlasma,
+                    CanPlatelet      = canPlatelet,
+                    WholeOnly        = wholeOnly,
+                    PlasmaOnly       = plasmaOnly,
+                    OpenDows         = openDows,
+                    NoLunchBreakDows = noLunchBreakDows,
+                    TimeDayType      = timeDayType,
+                    WholeOpenBy      = string.IsNullOrWhiteSpace(wholeOpenBy)    ? null : TimeOnly.TryParse(wholeOpenBy,    out var t1) ? t1 : null,
+                    WholeCloseAfter  = string.IsNullOrWhiteSpace(wholeCloseAfter) ? null : TimeOnly.TryParse(wholeCloseAfter, out var t2) ? t2 : null,
+                    CompOpenBy       = string.IsNullOrWhiteSpace(compOpenBy)     ? null : TimeOnly.TryParse(compOpenBy,     out var t3) ? t3 : null,
+                    CompCloseAfter   = string.IsNullOrWhiteSpace(compCloseAfter)  ? null : TimeOnly.TryParse(compCloseAfter,  out var t4) ? t4 : null,
+                    IncludeClosed    = includeClosed,
+                    ResultCount      = resultList.Count,
+                    IpAddress        = HttpContext.Connection.RemoteIpAddress?.ToString(),
+                    UserAgent        = Request.Headers.UserAgent.ToString().Length > 500
+                                        ? Request.Headers.UserAgent.ToString()[..500]
+                                        : Request.Headers.UserAgent.ToString(),
+                };
+                using var scope = HttpContext.RequestServices.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<KenketsuNoteContext>();
+                db.RoomSearchLogs.Add(log);
+                await db.SaveChangesAsync();
+            }
+            catch { /* ログ失敗は握りつぶす */ }
+        });
+
+        return Json(resultList);
     }
 }
