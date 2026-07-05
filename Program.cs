@@ -35,7 +35,7 @@ builder.Services.AddQuartz(q =>
     q.AddTrigger(opts => opts
         .ForJob(jobKey)
         .WithIdentity("RoomInfoCheckJob-trigger")
-        .WithCronSchedule("0 0 12 * * ?"));  // JST 12:00
+        .WithCronSchedule("0 30 06 * * ?"));
 });
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
