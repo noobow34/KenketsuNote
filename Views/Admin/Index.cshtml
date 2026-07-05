@@ -3,6 +3,7 @@
     Layout = null;
     var checkResults = ViewBag.CheckResults as List<RoomCheckResult> ?? new();
     var searchLogs   = ViewBag.SearchLogs   as List<RoomSearchLog>   ?? new();
+    bool hideAdmin   = ViewBag.HideAdmin ?? true;
 }
 <!DOCTYPE html>
 <html lang="ja">
@@ -43,6 +44,7 @@ tr:hover td{background:#fafcff;}
 .badge-resolved{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;}
 .badge-changes{background:#fce4ec;color:#b71c1c;border:1px solid #f48fb1;}
 .badge-nochange{background:#f5f5f5;color:#888;border:1px solid #ddd;}
+.badge-admin{background:#e8eaf6;color:#3949ab;border:1px solid #9fa8da;}
 a{color:#1565c0;}
 .changes-text{font-size:0.8rem;color:#666;max-width:300px;}
 .empty-msg{color:#aaa;font-size:0.9rem;padding:12px 0;}
@@ -211,7 +213,7 @@ a{color:#1565c0;}
                 <div class="pagination">
                     @if (ViewBag.CheckPage > 1)
                     {
-                        <a href="?checkPage=@(ViewBag.CheckPage - 1)&logPage=@ViewBag.LogPage">前へ</a>
+                        <a href="?checkPage=@(ViewBag.CheckPage - 1)&logPage=@ViewBag.LogPage&hideAdmin=@hideAdmin.ToString().ToLower()">前へ</a>
                     }
                     else
                     {
@@ -221,7 +223,7 @@ a{color:#1565c0;}
                     <span>/ @ViewBag.CheckTotalPages</span>
                     @if (ViewBag.CheckPage < ViewBag.CheckTotalPages)
                     {
-                        <a href="?checkPage=@(ViewBag.CheckPage + 1)&logPage=@ViewBag.LogPage">次へ</a>
+                        <a href="?checkPage=@(ViewBag.CheckPage + 1)&logPage=@ViewBag.LogPage&hideAdmin=@hideAdmin.ToString().ToLower()">次へ</a>
                     }
                     else
                     {
@@ -236,67 +238,19 @@ a{color:#1565c0;}
     <div class="section">
         <div class="section-header">
             <span class="section-icon">🔍</span>
-            <span class="section-title">検索ログ（@ViewBag.LogPage ページ目 / @ViewBag.LogTotalPages ページ）</span>
+            <span class="section-title" id="logSectionTitle">検索ログ（@ViewBag.LogPage ページ目 / @ViewBag.LogTotalPages ページ）</span>
         </div>
         <div class="section-body">
-            @if (!searchLogs.Any())
-            {
-                <p class="empty-msg">検索ログはありません。</p>
-            }
-            else
-            {
-                <table>
-                    <thead>
-                        <tr>
-                            <th>日時</th>
-                            <th>ルーム名</th>
-                            <th>市区町村</th>
-                            <th>献血種類</th>
-                            <th>件数</th>
-                            <th>IP</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var log in searchLogs)
-                        {
-                            var types = new List<string>();
-                            if (log.CanWhole    == true) types.Add("全血");
-                            if (log.CanPlasma   == true) types.Add("血漿");
-                            if (log.CanPlatelet == true) types.Add("血小板");
-                            if (log.WholeOnly)            types.Add("全血のみ");
-                            if (log.PlasmaOnly)           types.Add("血漿のみ");
-                            <tr>
-                                <td>@log.SearchedAt.ToOffset(TimeSpan.FromHours(9)).ToString("MM/dd HH:mm")</td>
-                                <td>@log.RoomName</td>
-                                <td>@log.City</td>
-                                <td>@(types.Any() ? string.Join(" ", types) : "—")</td>
-                                <td>@log.ResultCount</td>
-                                <td>@log.IpAddress</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-                <div class="pagination">
-                    @if (ViewBag.LogPage > 1)
-                    {
-                        <a href="?checkPage=@ViewBag.CheckPage&logPage=@(ViewBag.LogPage - 1)">前へ</a>
-                    }
-                    else
-                    {
-                        <span class="disabled">前へ</span>
-                    }
-                    <span class="current">@ViewBag.LogPage</span>
-                    <span>/ @ViewBag.LogTotalPages</span>
-                    @if (ViewBag.LogPage < ViewBag.LogTotalPages)
-                    {
-                        <a href="?checkPage=@ViewBag.CheckPage&logPage=@(ViewBag.LogPage + 1)">次へ</a>
-                    }
-                    else
-                    {
-                        <span class="disabled">次へ</span>
-                    }
-                </div>
-            }
+            <div style="margin-bottom:10px;">
+                <label style="font-size:0.85rem;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                    <input type="checkbox" id="hideAdminCheck" @(hideAdmin ? "checked" : "")
+                           onchange="loadLogPage(1)">
+                    管理者の検索を除外
+                </label>
+            </div>
+            <div id="logTableArea">
+                @await Html.PartialAsync("_SearchLogTable")
+            </div>
         </div>
     </div>
 
@@ -415,6 +369,13 @@ async function runSingleCheck(btn) {
     } finally {
         btn.disabled = false;
     }
+}
+
+async function loadLogPage(page) {
+    const hideAdmin = document.getElementById('hideAdminCheck').checked;
+    const res = await fetch(`/admin/search-logs?logPage=${page}&hideAdmin=${hideAdmin}`);
+    const html = await res.text();
+    document.getElementById('logTableArea').innerHTML = html;
 }
 
 async function updateSchedule(btn) {

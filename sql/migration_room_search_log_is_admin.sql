@@ -1,0 +1,2 @@
+ALTER TABLE kenketsu.room_search_log
+    ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;

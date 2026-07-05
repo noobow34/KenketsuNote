@@ -25,7 +25,7 @@ public class AdminController : Controller
     private const int LogPageSize   = 50;
 
     [HttpGet("")]
-    public async Task<IActionResult> Index([FromQuery] int checkPage = 1, [FromQuery] int logPage = 1)
+    public async Task<IActionResult> Index([FromQuery] int checkPage = 1, [FromQuery] int logPage = 1, [FromQuery] bool hideAdmin = true)
     {
         if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
 
@@ -41,12 +41,16 @@ public class AdminController : Controller
             .Take(CheckPageSize)
             .ToListAsync();
 
-        var logTotal = await _db.RoomSearchLogs.CountAsync();
-        var searchLogs = await _db.RoomSearchLogs
+        var logQuery = _db.RoomSearchLogs.AsQueryable();
+        if (hideAdmin) logQuery = logQuery.Where(l => !l.IsAdmin);
+        var logTotal = await logQuery.CountAsync();
+        var searchLogs = await logQuery
             .OrderByDescending(l => l.SearchedAt)
             .Skip((logPage - 1) * LogPageSize)
             .Take(LogPageSize)
             .ToListAsync();
+
+        ViewBag.HideAdmin = hideAdmin;
 
         ViewBag.CheckResults  = checkResults;
         ViewBag.CheckPage     = checkPage;
@@ -112,6 +116,26 @@ public class AdminController : Controller
         {
             return Json(new { success = false, message = $"エラー: {ex.Message}" });
         }
+    }
+
+    [HttpGet("search-logs")]
+    public async Task<IActionResult> SearchLogs([FromQuery] int logPage = 1, [FromQuery] bool hideAdmin = true)
+    {
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
+        logPage = Math.Max(1, logPage);
+        var logQuery = _db.RoomSearchLogs.AsQueryable();
+        if (hideAdmin) logQuery = logQuery.Where(l => !l.IsAdmin);
+        var logTotal = await logQuery.CountAsync();
+        var searchLogs = await logQuery
+            .OrderByDescending(l => l.SearchedAt)
+            .Skip((logPage - 1) * LogPageSize)
+            .Take(LogPageSize)
+            .ToListAsync();
+        ViewBag.SearchLogs    = searchLogs;
+        ViewBag.LogPage       = logPage;
+        ViewBag.LogTotalPages = (int)Math.Ceiling(logTotal / (double)LogPageSize);
+        ViewBag.HideAdmin     = hideAdmin;
+        return PartialView("_SearchLogTable");
     }
 
     [HttpPost("update-schedule")]

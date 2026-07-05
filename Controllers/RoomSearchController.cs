@@ -175,6 +175,7 @@ public class RoomSearchController : Controller
             {
                 var log = new RoomSearchLog
                 {
+                    SearchedAt       = DateTimeOffset.UtcNow,
                     CenterBlockId    = centerBlockId,
                     PrefId           = prefId,
                     RoomName         = roomName,
@@ -197,6 +198,7 @@ public class RoomSearchController : Controller
                     UserAgent        = Request.Headers.UserAgent.ToString().Length > 500
                                         ? Request.Headers.UserAgent.ToString()[..500]
                                         : Request.Headers.UserAgent.ToString(),
+                    IsAdmin          = HttpContext.User.Identity?.IsAuthenticated ?? false,
                 };
                 using var scope = HttpContext.RequestServices.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<KenketsuNoteContext>();

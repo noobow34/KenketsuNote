@@ -1,0 +1,99 @@
+@using KenketsuNote.Data
+@using KenketsuNote.Infrastructure
+@{
+    var searchLogs = ViewBag.SearchLogs as List<RoomSearchLog> ?? new();
+    bool hideAdmin  = ViewBag.HideAdmin ?? true;
+    var prefMap  = MasterData.Prefectures.ToDictionary(p => p.PrefId, p => p.PrefName);
+    var blockMap = MasterData.CenterBlocks.ToDictionary(b => b.CenterBlockId, b => b.CenterBlockName);
+    var dowNames = new[] { "日", "月", "火", "水", "木", "金", "土" };
+}
+@if (!searchLogs.Any())
+{
+    <p class="empty-msg">検索ログはありません。</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>日時</th>
+                <th>エリア</th>
+                <th>ルーム名/市区町村</th>
+                <th>献血種類</th>
+                <th>その他条件</th>
+                <th>件数</th>
+                <th>IP</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var log in searchLogs)
+            {
+                var types = new List<string>();
+                if (log.WholeOnly)             types.Add("全血のみ");
+                else if (log.PlasmaOnly)       types.Add("血漿のみ");
+                else {
+                    if (log.CanWhole    == true) types.Add("全血");
+                    if (log.CanPlasma   == true) types.Add("血漿");
+                    if (log.CanPlatelet == true) types.Add("血小板");
+                }
+
+                var area = log.PrefId.HasValue && prefMap.TryGetValue(log.PrefId.Value, out var pn) ? pn
+                         : log.CenterBlockId.HasValue && blockMap.TryGetValue(log.CenterBlockId.Value, out var bn) ? bn
+                         : "—";
+
+                var others = new List<string>();
+                if (!string.IsNullOrEmpty(log.OpenDows))
+                {
+                    var dowLabels = log.OpenDows.Split(',')
+                        .Select(t => t.Trim() == "irregular" ? "不定休あり"
+                                   : int.TryParse(t.Trim(), out var d) && d >= 0 && d <= 6 ? dowNames[d] + "営業" : t.Trim());
+                    others.Add(string.Join(" ", dowLabels));
+                }
+                if (!string.IsNullOrEmpty(log.NoLunchBreakDows)) others.Add($"昼中断なし:{log.NoLunchBreakDows}");
+                var dayTypeLabel = log.TimeDayType == 0 ? "平日" : log.TimeDayType == 1 ? "土日祝" : null;
+                if (log.WholeOpenBy.HasValue)    others.Add($"全血開始≤{log.WholeOpenBy:HH\\:mm}{(dayTypeLabel != null ? $"({dayTypeLabel})" : "")}");
+                if (log.WholeCloseAfter.HasValue) others.Add($"全血終了≥{log.WholeCloseAfter:HH\\:mm}{(dayTypeLabel != null ? $"({dayTypeLabel})" : "")}");
+                if (log.CompOpenBy.HasValue)     others.Add($"成分開始≤{log.CompOpenBy:HH\\:mm}{(dayTypeLabel != null ? $"({dayTypeLabel})" : "")}");
+                if (log.CompCloseAfter.HasValue)  others.Add($"成分終了≥{log.CompCloseAfter:HH\\:mm}{(dayTypeLabel != null ? $"({dayTypeLabel})" : "")}");
+                if (log.IncludeClosed)            others.Add("閉鎖含む");
+
+                <tr>
+                    <td style="white-space:nowrap;">@log.SearchedAt.ToOffset(TimeSpan.FromHours(9)).ToString("MM/dd HH:mm")</td>
+                    <td style="white-space:nowrap;">@area</td>
+                    <td>
+                        @if (!string.IsNullOrEmpty(log.RoomName)) { <span>@log.RoomName</span> }
+                        @if (!string.IsNullOrEmpty(log.City)) { <span style="color:#888;font-size:0.8rem;"> @log.City</span> }
+                        @if (string.IsNullOrEmpty(log.RoomName) && string.IsNullOrEmpty(log.City)) { <span>—</span> }
+                    </td>
+                    <td style="white-space:nowrap;">@(types.Any() ? string.Join(" ", types) : "—")</td>
+                    <td style="font-size:0.8rem;color:#555;">@(others.Any() ? string.Join("　", others) : "—")</td>
+                    <td>@log.ResultCount</td>
+                    <td style="white-space:nowrap;">
+                        @log.IpAddress
+                        @if (log.IsAdmin) { <span class="badge badge-admin">管理者</span> }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <div class="pagination" id="logPagination">
+        @if (ViewBag.LogPage > 1)
+        {
+            <a href="#" onclick="loadLogPage(@(ViewBag.LogPage - 1));return false;">前へ</a>
+        }
+        else
+        {
+            <span class="disabled">前へ</span>
+        }
+        <span class="current">@ViewBag.LogPage</span>
+        <span>/ @ViewBag.LogTotalPages</span>
+        @if (ViewBag.LogPage < ViewBag.LogTotalPages)
+        {
+            <a href="#" onclick="loadLogPage(@(ViewBag.LogPage + 1));return false;">次へ</a>
+        }
+        else
+        {
+            <span class="disabled">次へ</span>
+        }
+    </div>
+}

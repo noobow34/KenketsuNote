@@ -79,4 +79,7 @@ public class RoomSearchLog
     [Column("user_agent")]
     [StringLength(500)]
     public string? UserAgent { get; set; }
+
+    [Column("is_admin")]
+    public bool IsAdmin { get; set; }
 }
