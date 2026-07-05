@@ -300,6 +300,14 @@
 
 <div class="container">
 
+    @if (isAdmin)
+    {
+        <div style="text-align:right;margin-bottom:8px;font-size:0.85em;">
+            <a href="/u/noobow" style="color:#b71c1c;margin-right:12px;">マイページ</a>
+            <a href="/admin" style="color:#b71c1c;">管理画面</a>
+        </div>
+    }
+
     <div class="hero">
         <img src="~/image/logo1.png" alt="けんけつノート" style="max-width:60%; height:auto; margin-top:20px;">
         <p style="font-size:1.15em; font-weight:bold; color:#b71c1c; margin-bottom:4px;">献血の記録を、もっと楽しく。</p>
@@ -397,9 +405,6 @@
 
     <footer>
         運営者：<a href="https://x.com/noobow">ぬーぼー</a>
-        @if (isAdmin) {
-            <span style="margin-left:16px;">｜ <a href="/admin">管理画面</a></span>
-        }
     </footer>
 
 </div>

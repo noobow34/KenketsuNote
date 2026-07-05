@@ -1,7 +1,9 @@
+@using KenketsuNote.Auth
 @{
     Layout = null;
     var userId         = ViewBag.UserId as string ?? "";
     var genderRequired = (bool)(ViewBag.GenderRequired ?? false);
+    bool isAdmin       = AdminAuth.IsAdmin(Context);
 }
 <!DOCTYPE html>
 <html lang="ja">
@@ -1294,6 +1296,10 @@ function closeNav() { document.getElementById('navDrawer').classList.remove('ope
     <div style="border-top:1px solid #f0f0f0;margin-top:auto;"></div>
     <a href="/" class="nav-item"><span class="nav-item-icon">🏡</span>トップページ</a>
     <a href="https://forms.gle/H5UpkMp8qQMnoujp8" class="nav-item" target="_blank" rel="noopener"><span class="nav-item-icon">✉️</span>お問い合わせ</a>
+    @if (isAdmin)
+    {
+        <a href="/admin" class="nav-item"><span class="nav-item-icon">⚙️</span>管理画面</a>
+    }
     <button class="nav-item pwa-install-btn" onclick="installPwa()" style="width:100%;background:none;border:none;border-top:1px solid #f0f0f0;cursor:pointer;color:#d32f2f;font-weight:600;"><span class="nav-item-icon">📲</span>ホーム画面に追加</button>
 </nav>
 <script>

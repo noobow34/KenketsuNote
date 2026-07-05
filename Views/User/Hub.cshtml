@@ -1,7 +1,9 @@
+@using KenketsuNote.Auth
 @{
     Layout = null;
     var userId   = ViewBag.UserId as string ?? "";
     var userName = ViewBag.UserName as string;
+    bool isAdmin = AdminAuth.IsAdmin(Context);
 }
 <!DOCTYPE html>
 <html lang="ja">
@@ -172,6 +174,16 @@
                 <div class="hub-card-desc">全国の献血ルームを条件で絞り込み</div>
             </div>
         </a>
+        @if (isAdmin)
+        {
+            <a href="/admin" class="hub-card" style="border-left-color:#555;">
+                <div class="hub-card-icon">⚙️</div>
+                <div class="hub-card-text">
+                    <div class="hub-card-name" style="color:#333;">管理画面</div>
+                    <div class="hub-card-desc">ログ・差分チェック・マスタ管理</div>
+                </div>
+            </a>
+        }
     </div>
     <div class="hub-notice">
         <strong>🔖 このページをブックマークしてご利用ください</strong>
