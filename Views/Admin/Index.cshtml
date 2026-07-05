@@ -1,6 +1,8 @@
+@using KenketsuNote.Data
 @{
     Layout = null;
-    var key = ViewBag.Key as string ?? "";
+    var checkResults = ViewBag.CheckResults as List<RoomCheckResult> ?? new();
+    var searchLogs   = ViewBag.SearchLogs   as List<RoomSearchLog>   ?? new();
 }
 <!DOCTYPE html>
 <html lang="ja">
@@ -11,32 +13,46 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;color:#333;}
-.wrap{max-width:600px;margin:0 auto;padding:24px 16px 60px;}
-.topbar{background:#333;color:white;padding:14px 16px;margin-bottom:24px;}
+.wrap{max-width:900px;margin:0 auto;padding:24px 16px 60px;}
+.topbar{background:#333;color:white;padding:14px 16px;margin-bottom:24px;display:flex;align-items:center;gap:16px;}
 .topbar h1{font-size:1rem;font-weight:700;}
 .topbar small{font-size:0.75rem;color:#aaa;margin-left:8px;}
+.topbar-logout{margin-left:auto;font-size:0.8rem;color:#aaa;text-decoration:none;}
+.topbar-logout:hover{color:white;}
 .section{background:white;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.08);margin-bottom:16px;overflow:hidden;}
 .section-header{padding:14px 16px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:8px;}
 .section-icon{font-size:1.1rem;}
 .section-title{font-size:0.95rem;font-weight:700;color:#333;}
 .section-body{padding:14px 16px;}
-.action-btn{display:flex;align-items:center;justify-content:space-between;width:100%;padding:12px 14px;border:1.5px solid #ddd;border-radius:8px;background:white;cursor:pointer;font-size:0.9rem;color:#333;text-align:left;margin-bottom:8px;transition:background 0.12s;}
+.action-btn{display:flex;align-items:center;justify-content:space-between;width:auto;padding:10px 18px;border:1.5px solid #ddd;border-radius:8px;background:white;cursor:pointer;font-size:0.9rem;color:#333;text-align:left;margin-bottom:8px;transition:background 0.12s;}
 .action-btn:hover{background:#f8f8f8;}
-.action-btn:last-child{margin-bottom:0;}
-.action-btn .btn-label{font-weight:600;}
-.action-btn .btn-desc{font-size:0.78rem;color:#888;margin-top:2px;}
-.action-btn .btn-arrow{color:#ccc;font-size:1.1rem;flex-shrink:0;}
+.btn-label{font-weight:600;}
+.btn-desc{font-size:0.78rem;color:#888;margin-top:2px;}
 .result-box{margin-top:10px;padding:10px 12px;border-radius:6px;font-size:0.85rem;display:none;}
 .result-box.ok {background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;}
 .result-box.err{background:#fce4ec;color:#b71c1c;border:1px solid #f48fb1;}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid #ccc;border-top-color:#555;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px;}
 @@keyframes spin{to{transform:rotate(360deg);}}
+table{width:100%;border-collapse:collapse;font-size:0.85rem;}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid #f0f0f0;vertical-align:top;}
+th{font-weight:600;color:#666;background:#fafafa;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#fafcff;}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;}
+.badge-unresolved{background:#fff3e0;color:#e65100;border:1px solid #ffcc80;}
+.badge-resolved{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;}
+.badge-changes{background:#fce4ec;color:#b71c1c;border:1px solid #f48fb1;}
+.badge-nochange{background:#f5f5f5;color:#888;border:1px solid #ddd;}
+a{color:#1565c0;}
+.changes-text{font-size:0.8rem;color:#666;max-width:300px;}
+.empty-msg{color:#aaa;font-size:0.9rem;padding:12px 0;}
 </style>
 </head>
 <body>
 
 <div class="topbar">
     <h1>けんけつノート <small>管理画面</small></h1>
+    <a class="topbar-logout" href="/account/logout">ログアウト</a>
 </div>
 
 <div class="wrap">
@@ -53,19 +69,144 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
                     <div class="btn-label">マスタデータ再ロード</div>
                     <div class="btn-desc">献血ルーム・都道府県・ブロック情報をDBから再読み込み</div>
                 </div>
-                <span class="btn-arrow">▶</span>
             </button>
             <div class="result-box" id="result-reload-master"></div>
         </div>
     </div>
 
-    <!-- ── 今後の管理機能はここに section を追加 ── -->
+    <!-- ── Gemini差分チェック実行 ── -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-icon">🤖</span>
+            <span class="section-title">Gemini差分チェック</span>
+        </div>
+        <div class="section-body">
+            <button class="action-btn" onclick="runAction('run-room-check', this)">
+                <div>
+                    <div class="btn-label">今すぐ実行</div>
+                    <div class="btn-desc">次のバッチ（10ルーム）をGeminiでチェックします。完了まで数分かかります。</div>
+                </div>
+            </button>
+            <div class="result-box" id="result-run-room-check"></div>
+        </div>
+    </div>
+
+    <!-- ── Gemini差分チェックログ ── -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-icon">🤖</span>
+            <span class="section-title">Gemini差分チェックログ</span>
+        </div>
+        <div class="section-body">
+            @if (!checkResults.Any())
+            {
+                <p class="empty-msg">チェック結果はありません。</p>
+            }
+            else
+            {
+                <table>
+                    <thead>
+                        <tr>
+                            <th>チェック日時</th>
+                            <th>献血ルーム</th>
+                            <th>差分</th>
+                            <th>状態</th>
+                            <th>変更内容</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in checkResults)
+                        {
+                            <tr>
+                                <td>@r.CheckedAt.ToOffset(TimeSpan.FromHours(9)).ToString("MM/dd HH:mm")</td>
+                                <td>@(r.Room?.RoomName ?? $"ID:{r.RoomId}")</td>
+                                <td>
+                                    @if (r.HasChanges)
+                                    {
+                                        <span class="badge badge-changes">差分あり</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-nochange">変更なし</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (r.Resolved)
+                                    {
+                                        <span class="badge badge-resolved">対応済み</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-unresolved">未対応</span>
+                                    }
+                                </td>
+                                <td class="changes-text">@r.Changes</td>
+                                <td>
+                                    @if (r.HasChanges && !r.Resolved)
+                                    {
+                                        <a href="/admin/room-check/@r.Id?token=@r.ReviewToken">レビュー</a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+
+    <!-- ── 検索ログ ── -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-icon">🔍</span>
+            <span class="section-title">検索ログ（直近50件）</span>
+        </div>
+        <div class="section-body">
+            @if (!searchLogs.Any())
+            {
+                <p class="empty-msg">検索ログはありません。</p>
+            }
+            else
+            {
+                <table>
+                    <thead>
+                        <tr>
+                            <th>日時</th>
+                            <th>ルーム名</th>
+                            <th>市区町村</th>
+                            <th>献血種類</th>
+                            <th>件数</th>
+                            <th>IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var log in searchLogs)
+                        {
+                            var types = new List<string>();
+                            if (log.CanWhole    == true) types.Add("全血");
+                            if (log.CanPlasma   == true) types.Add("血漿");
+                            if (log.CanPlatelet == true) types.Add("血小板");
+                            if (log.WholeOnly)            types.Add("全血のみ");
+                            if (log.PlasmaOnly)           types.Add("血漿のみ");
+                            <tr>
+                                <td>@log.SearchedAt.ToOffset(TimeSpan.FromHours(9)).ToString("MM/dd HH:mm")</td>
+                                <td>@log.RoomName</td>
+                                <td>@log.City</td>
+                                <td>@(types.Any() ? string.Join(" ", types) : "—")</td>
+                                <td>@log.ResultCount</td>
+                                <td>@log.IpAddress</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
 
 </div>
 
 <script>
-const ADMIN_KEY = '@key';
-
 async function runAction(action, btn) {
     const resultEl = document.getElementById('result-' + action);
     resultEl.className = 'result-box';
@@ -74,9 +215,10 @@ async function runAction(action, btn) {
     btn.disabled = true;
 
     try {
-        const fd = new FormData();
-        fd.append('key', ADMIN_KEY);
-        const res  = await fetch('/admin/' + action, { method: 'POST', body: fd });
+        const res  = await fetch('/admin/' + action, {
+            method: 'POST',
+            headers: { 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '' }
+        });
         const data = await res.json();
         resultEl.className = 'result-box ' + (data.success ? 'ok' : 'err');
         resultEl.textContent = data.message;

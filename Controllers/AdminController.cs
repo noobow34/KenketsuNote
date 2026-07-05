@@ -1,36 +1,67 @@
+using KenketsuNote.Data;
 using KenketsuNote.Infrastructure;
+using KenketsuNote.Util;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Quartz;
 
 namespace KenketsuNote.Controllers;
 
+[Route("admin")]
 public class AdminController : Controller
 {
-    private static string? AdminKey =>
-        Environment.GetEnvironmentVariable("KENKETSUNOTE_ADMIN_KEY");
+    private readonly KenketsuNoteContext _db;
+    private readonly ISchedulerFactory _schedulerFactory;
 
-    private bool IsAuthorized(string? key) =>
-        !string.IsNullOrEmpty(AdminKey) && key == AdminKey;
-
-    // ─────────────────────────────────────────────
-    // 管理画面
-    // ─────────────────────────────────────────────
-    [HttpGet("admin")]
-    public IActionResult Index(string? key)
+    public AdminController(KenketsuNoteContext db, ISchedulerFactory schedulerFactory)
     {
-        if (!IsAuthorized(key)) return Forbid();
-        ViewBag.Key = key;
+        _db = db;
+        _schedulerFactory = schedulerFactory;
+    }
+
+    [HttpGet("")]
+    public async Task<IActionResult> Index()
+    {
+        if (!CookieUtil.IsAdmin(HttpContext)) return NotFound();
+
+        var checkResults = await _db.RoomCheckResults
+            .Include(r => r.Room)
+            .OrderBy(r => r.Resolved)
+            .ThenByDescending(r => r.CheckedAt)
+            .Take(100)
+            .ToListAsync();
+
+        var searchLogs = await _db.RoomSearchLogs
+            .OrderByDescending(l => l.SearchedAt)
+            .Take(50)
+            .ToListAsync();
+
+        ViewBag.CheckResults = checkResults;
+        ViewBag.SearchLogs = searchLogs;
         return View();
     }
 
-    // ─────────────────────────────────────────────
-    // マスタデータ再ロード
-    // ─────────────────────────────────────────────
-    [HttpPost("admin/reload-master")]
-    public IActionResult ReloadMaster([FromForm] string? key)
+    [HttpPost("run-room-check")]
+    public async Task<IActionResult> RunRoomCheck()
     {
-        if (!IsAuthorized(key))
-            return Json(new { success = false, message = "認証エラー" });
+        if (!CookieUtil.IsAdmin(HttpContext)) return NotFound();
+        try
+        {
+            var scheduler = await _schedulerFactory.GetScheduler();
+            var jobKey = new JobKey("RoomInfoCheckJob");
+            await scheduler.TriggerJob(jobKey);
+            return Json(new { success = true, message = "ジョブを起動しました。結果はしばらく後にログに反映されます。" });
+        }
+        catch (Exception ex)
+        {
+            return Json(new { success = false, message = $"エラー: {ex.Message}" });
+        }
+    }
 
+    [HttpPost("reload-master")]
+    public IActionResult ReloadMaster()
+    {
+        if (!CookieUtil.IsAdmin(HttpContext)) return NotFound();
         try
         {
             MasterData.Load();
