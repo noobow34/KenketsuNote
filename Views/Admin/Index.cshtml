@@ -106,13 +106,25 @@ a{color:#1565c0;}
         </div>
     </div>
 
-    <!-- ── Gemini差分チェック実行 ── -->
+    <!-- ── Gemini差分チェック ── -->
     <div class="section">
         <div class="section-header">
             <span class="section-icon">🤖</span>
             <span class="section-title">Gemini差分チェック</span>
         </div>
         <div class="section-body">
+            <div style="border-bottom:1px solid #f0f0f0;padding-bottom:12px;margin-bottom:12px;">
+                <div class="btn-label" style="font-size:0.88rem;margin-bottom:6px;">自動実行時刻（JST）</div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <input type="number" id="schedHour"   min="0" max="23" value="@ViewBag.ScheduledHour"
+                           style="width:60px;padding:7px;border:1.5px solid #ddd;border-radius:6px;font-size:0.95rem;text-align:center;">
+                    <span style="font-size:1.1rem;font-weight:700;">:</span>
+                    <input type="number" id="schedMinute" min="0" max="59" value="@ViewBag.ScheduledMinute"
+                           style="width:60px;padding:7px;border:1.5px solid #ddd;border-radius:6px;font-size:0.95rem;text-align:center;">
+                    <button class="run-single-btn" onclick="updateSchedule(this)">変更</button>
+                </div>
+                <div class="result-box" id="result-update-schedule"></div>
+            </div>
             <button class="action-btn" onclick="runAction('run-room-check', this)">
                 <div>
                     <div class="btn-label">バッチ実行</div>
@@ -394,6 +406,28 @@ async function runSingleCheck(btn) {
         const fd = new FormData();
         fd.append('roomId', roomId);
         const res  = await fetch('/admin/run-room-check-single', { method: 'POST', body: fd });
+        const data = await res.json();
+        resultEl.className = 'result-box ' + (data.success ? 'ok' : 'err');
+        resultEl.textContent = data.message;
+    } catch (e) {
+        resultEl.className = 'result-box err';
+        resultEl.textContent = '通信エラー: ' + e.message;
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function updateSchedule(btn) {
+    const hour   = parseInt(document.getElementById('schedHour').value, 10);
+    const minute = parseInt(document.getElementById('schedMinute').value, 10);
+    const resultEl = document.getElementById('result-update-schedule');
+    resultEl.className = 'result-box';
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<span class="spinner"></span>変更中…';
+    btn.disabled = true;
+    try {
+        const body = new URLSearchParams({ hour, minute });
+        const res  = await fetch('/admin/update-schedule', { method: 'POST', body });
         const data = await res.json();
         resultEl.className = 'result-box ' + (data.success ? 'ok' : 'err');
         resultEl.textContent = data.message;

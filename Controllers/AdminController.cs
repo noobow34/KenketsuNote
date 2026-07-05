@@ -61,6 +61,10 @@ public class AdminController : Controller
         ViewBag.PrefsJson  = JsonSerializer.Serialize(MasterData.Prefectures.Select(p => new { p.PrefId, p.PrefName, p.CenterBlockId }), jsonOpt);
         ViewBag.BlocksJson = JsonSerializer.Serialize(MasterData.CenterBlocks.Select(b => new { b.CenterBlockId, b.CenterBlockName }), jsonOpt);
 
+        var jobState = await _db.RoomCheckJobStates.FindAsync(1);
+        ViewBag.ScheduledHour   = jobState?.ScheduledHour   ?? 6;
+        ViewBag.ScheduledMinute = jobState?.ScheduledMinute ?? 30;
+
         return View();
     }
 
@@ -108,6 +112,36 @@ public class AdminController : Controller
         {
             return Json(new { success = false, message = $"エラー: {ex.Message}" });
         }
+    }
+
+    [HttpPost("update-schedule")]
+    public async Task<IActionResult> UpdateSchedule([FromForm] int hour, [FromForm] int minute)
+    {
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
+        if (hour < 0 || hour > 23 || minute < 0 || minute > 59)
+            return Json(new { success = false, message = "時刻が不正です。" });
+
+        var state = await _db.RoomCheckJobStates.FindAsync(1);
+        if (state is null)
+        {
+            state = new RoomCheckJobState { Id = 1, NextOffset = 0 };
+            _db.RoomCheckJobStates.Add(state);
+        }
+        state.ScheduledHour   = hour;
+        state.ScheduledMinute = minute;
+        await _db.SaveChangesAsync();
+
+        var cron = $"0 {minute} {hour} * * ?";
+        var scheduler = await _schedulerFactory.GetScheduler();
+        var triggerKey = new Quartz.TriggerKey("RoomInfoCheckJob-trigger");
+        var trigger = TriggerBuilder.Create()
+            .WithIdentity(triggerKey)
+            .ForJob(new JobKey("RoomInfoCheckJob"))
+            .WithCronSchedule(cron)
+            .Build();
+        await scheduler.RescheduleJob(triggerKey, trigger);
+
+        return Json(new { success = true, message = $"実行時刻を {hour:D2}:{minute:D2} (JST) に変更しました。" });
     }
 
     [HttpPost("reload-master")]

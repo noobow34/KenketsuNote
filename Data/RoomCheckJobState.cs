@@ -16,4 +16,11 @@ public class RoomCheckJobState
 
     [Column("last_run_at")]
     public DateTimeOffset? LastRunAt { get; set; }
+
+    // JST での実行時刻（デフォルト 6:30）
+    [Column("scheduled_hour")]
+    public int ScheduledHour { get; set; } = 6;
+
+    [Column("scheduled_minute")]
+    public int ScheduledMinute { get; set; } = 30;
 }
