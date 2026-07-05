@@ -1,7 +1,7 @@
 using Auth0.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication;
 
-namespace KenketsuNote.Classes;
+namespace KenketsuNote.Middleware;
 
 public class ConditionalAuthRedirectMiddleware
 {

@@ -1,6 +1,6 @@
 using KenketsuNote.Data;
 using KenketsuNote.Infrastructure;
-using KenketsuNote.Util;
+using KenketsuNote.Auth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Quartz;
@@ -22,7 +22,7 @@ public class AdminController : Controller
     [HttpGet("")]
     public async Task<IActionResult> Index()
     {
-        if (!CookieUtil.IsAdmin(HttpContext)) return NotFound();
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
 
         var checkResults = await _db.RoomCheckResults
             .Include(r => r.Room)
@@ -44,7 +44,7 @@ public class AdminController : Controller
     [HttpPost("run-room-check")]
     public async Task<IActionResult> RunRoomCheck()
     {
-        if (!CookieUtil.IsAdmin(HttpContext)) return NotFound();
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
         try
         {
             var scheduler = await _schedulerFactory.GetScheduler();
@@ -61,7 +61,7 @@ public class AdminController : Controller
     [HttpPost("reload-master")]
     public IActionResult ReloadMaster()
     {
-        if (!CookieUtil.IsAdmin(HttpContext)) return NotFound();
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
         try
         {
             MasterData.Load();

@@ -1,7 +1,7 @@
 using System.Text.Json;
 using KenketsuNote.Data;
 using KenketsuNote.Jobs;
-using KenketsuNote.Util;
+using KenketsuNote.Auth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,7 +18,7 @@ public class RoomCheckController : Controller
     [HttpGet("{id:long}")]
     public async Task<IActionResult> Review(long id, [FromQuery] Guid token)
     {
-        if (!CookieUtil.IsAdmin(HttpContext)) return NotFound();
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
         var result = await _db.RoomCheckResults
             .Include(r => r.Room)
             .ThenInclude(r => r!.BusinessHours)

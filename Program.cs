@@ -1,5 +1,5 @@
 using Auth0.AspNetCore.Authentication;
-using KenketsuNote.Classes;
+using KenketsuNote.Middleware;
 using KenketsuNote.Infrastructure;
 using KenketsuNote.Data;
 using KenketsuNote.Jobs;

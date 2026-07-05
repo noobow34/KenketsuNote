@@ -1,6 +1,6 @@
-namespace KenketsuNote.Util;
+namespace KenketsuNote.Auth;
 
-public static class CookieUtil
+public static class AdminAuth
 {
     public static bool IsAdmin(HttpContext context)
     {
