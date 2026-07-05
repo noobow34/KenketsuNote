@@ -1,6 +1,8 @@
+using System.Text.Json;
+using KenketsuNote.Auth;
 using KenketsuNote.Data;
 using KenketsuNote.Infrastructure;
-using KenketsuNote.Auth;
+using KenketsuNote.Jobs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Quartz;
@@ -38,6 +40,12 @@ public class AdminController : Controller
 
         ViewBag.CheckResults = checkResults;
         ViewBag.SearchLogs = searchLogs;
+
+        var jsonOpt = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        ViewBag.RoomsJson  = JsonSerializer.Serialize(MasterData.Rooms.Where(r => !r.IsClosed).Select(r => new { r.RoomId, r.RoomName, r.PrefId, r.IsClosed }), jsonOpt);
+        ViewBag.PrefsJson  = JsonSerializer.Serialize(MasterData.Prefectures.Select(p => new { p.PrefId, p.PrefName, p.CenterBlockId }), jsonOpt);
+        ViewBag.BlocksJson = JsonSerializer.Serialize(MasterData.CenterBlocks.Select(b => new { b.CenterBlockId, b.CenterBlockName }), jsonOpt);
+
         return View();
     }
 
@@ -51,6 +59,35 @@ public class AdminController : Controller
             var jobKey = new JobKey("RoomInfoCheckJob");
             await scheduler.TriggerJob(jobKey);
             return Json(new { success = true, message = "ジョブを起動しました。結果はしばらく後にログに反映されます。" });
+        }
+        catch (Exception ex)
+        {
+            return Json(new { success = false, message = $"エラー: {ex.Message}" });
+        }
+    }
+
+    [HttpPost("run-room-check-single")]
+    public async Task<IActionResult> RunRoomCheckSingle([FromForm] int roomId)
+    {
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
+        try
+        {
+            var room = await _db.KenketsuRooms
+                .Include(r => r.BusinessHours)
+                .FirstOrDefaultAsync(r => r.RoomId == roomId);
+            if (room is null) return Json(new { success = false, message = "ルームが見つかりません。" });
+            if (room.RoomUrl is null) return Json(new { success = false, message = "このルームには公式URLが登録されていません。" });
+
+            var geminiApiKey  = Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? "";
+            var slackBotToken = Environment.GetEnvironmentVariable("SLACK_BOT_TOKEN") ?? "";
+            var slackChannel  = Environment.GetEnvironmentVariable("SLACK_ROOM_CHECK_CHANNEL") ?? "";
+            var baseUrl       = (Environment.GetEnvironmentVariable("KENKETSUNOTE_BASE_URL") ?? "").TrimEnd('/');
+
+            if (string.IsNullOrEmpty(geminiApiKey))
+                return Json(new { success = false, message = "GEMINI_API_KEY が設定されていません。" });
+
+            await RoomInfoCheckJob.ProcessRoomAsync(room, _db, geminiApiKey, slackBotToken, slackChannel, baseUrl);
+            return Json(new { success = true, message = $"「{room.RoomName}」のチェックが完了しました。ログを確認してください。" });
         }
         catch (Exception ex)
         {

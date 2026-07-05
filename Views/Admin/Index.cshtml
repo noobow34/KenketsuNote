@@ -46,6 +46,33 @@ tr:hover td{background:#fafcff;}
 a{color:#1565c0;}
 .changes-text{font-size:0.8rem;color:#666;max-width:300px;}
 .empty-msg{color:#aaa;font-size:0.9rem;padding:12px 0;}
+/* ── ルームピッカー ── */
+.room-select-row{display:flex;align-items:center;gap:8px;margin-top:8px;}
+.room-select-btn{display:flex;align-items:center;justify-content:space-between;flex:1;padding:8px 10px;border:1.5px solid #e0e0e0;border-radius:8px;background:white;font-size:0.88rem;cursor:pointer;color:#333;text-align:left;}
+.room-select-btn:hover{border-color:#1565c0;}
+.room-select-btn .room-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.room-select-btn .room-clear{flex-shrink:0;margin-left:6px;color:#bbb;font-size:0.75rem;}
+.room-select-btn .room-clear:hover{color:#e74c3c;}
+.run-single-btn{padding:8px 16px;border:none;border-radius:8px;background:#1565c0;color:white;font-size:0.88rem;font-weight:600;cursor:pointer;white-space:nowrap;}
+.run-single-btn:hover{background:#0d47a1;}
+/* ── モーダル ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:white;border-radius:14px;padding:20px;width:90%;max-width:480px;max-height:90vh;overflow-y:auto;position:relative;}
+.modal-close{position:absolute;top:12px;right:14px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#aaa;}
+.modal-title{font-size:1rem;font-weight:700;margin-bottom:14px;color:#333;}
+.room-picker-search{width:100%;padding:9px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:0.9rem;box-sizing:border-box;margin-bottom:10px;}
+.room-picker-search:focus{outline:none;border-color:#1565c0;}
+.pref-filter{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:8px;scrollbar-width:thin;}
+.pref-filter-btn{flex-shrink:0;padding:4px 10px;border:1.5px solid #ddd;border-radius:14px;background:white;font-size:0.75rem;cursor:pointer;white-space:nowrap;color:#555;}
+.pref-filter-btn.active{border-color:#1565c0;background:#e3f2fd;color:#1565c0;font-weight:700;}
+.room-list{height:280px;overflow-y:auto;border:1px solid #f0f0f0;border-radius:8px;}
+.room-list-item{padding:9px 12px;font-size:0.85rem;cursor:pointer;border-bottom:1px solid #f5f5f5;display:flex;align-items:center;gap:8px;}
+.room-list-item:last-child{border-bottom:none;}
+.room-list-item:hover{background:#e3f2fd;}
+.room-list-item.none-item{color:#aaa;font-style:italic;}
+.room-list-item .room-pref-tag{font-size:0.72rem;color:#aaa;flex-shrink:0;}
+.room-list-empty{padding:16px;text-align:center;color:#aaa;font-size:0.85rem;}
 </style>
 </head>
 <body>
@@ -83,11 +110,23 @@ a{color:#1565c0;}
         <div class="section-body">
             <button class="action-btn" onclick="runAction('run-room-check', this)">
                 <div>
-                    <div class="btn-label">今すぐ実行</div>
+                    <div class="btn-label">バッチ実行</div>
                     <div class="btn-desc">次のバッチ（10ルーム）をGeminiでチェックします。完了まで数分かかります。</div>
                 </div>
             </button>
             <div class="result-box" id="result-run-room-check"></div>
+            <div style="margin-top:12px;border-top:1px solid #f0f0f0;padding-top:12px;">
+                <div class="btn-label" style="font-size:0.88rem;margin-bottom:6px;">特定ルームを指定して実行</div>
+                <div class="room-select-row">
+                    <button type="button" class="room-select-btn" onclick="openRoomPicker()">
+                        <span class="room-name" id="singleRoomName">ルームを選択…</span>
+                        <span class="room-clear" onclick="clearSingleRoom();event.stopPropagation()">✕</span>
+                    </button>
+                    <input type="hidden" id="singleRoomId">
+                    <button type="button" class="run-single-btn" onclick="runSingleCheck(this)">実行</button>
+                </div>
+                <div class="result-box" id="result-run-room-check-single"></div>
+            </div>
         </div>
     </div>
 
@@ -206,19 +245,129 @@ a{color:#1565c0;}
 
 </div>
 
+<!-- ── ルームピッカーモーダル ── -->
+<div class="modal-overlay" id="modalRoomPicker" onclick="if(event.target===this)closeRoomPicker()">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeRoomPicker()">×</button>
+        <div class="modal-title">献血ルームを選択</div>
+        <input type="text" class="room-picker-search" id="roomPickerSearch" placeholder="ルーム名で検索…" oninput="filterRooms()">
+        <div class="pref-filter" id="prefFilter"></div>
+        <div class="room-list" id="roomPickerList"></div>
+    </div>
+</div>
+
 <script>
+const ROOMS    = @Html.Raw(ViewBag.RoomsJson  ?? "[]");
+const PREFS    = @Html.Raw(ViewBag.PrefsJson  ?? "[]");
+const BLOCKS   = @Html.Raw(ViewBag.BlocksJson ?? "[]");
+const PREF_MAP = Object.fromEntries(PREFS.map(p => [p.prefId, p.prefName]));
+
+let _pickerPref = null;
+
+function openRoomPicker() {
+    _pickerPref = null;
+    document.getElementById('roomPickerSearch').value = '';
+    buildPrefFilter();
+    filterRooms();
+    document.getElementById('modalRoomPicker').classList.add('open');
+    setTimeout(() => document.getElementById('roomPickerSearch').focus(), 80);
+}
+function closeRoomPicker() {
+    document.getElementById('modalRoomPicker').classList.remove('open');
+}
+function buildPrefFilter() {
+    const el = document.getElementById('prefFilter');
+    el.innerHTML = '';
+    const allBtn = document.createElement('button');
+    allBtn.className = 'pref-filter-btn active';
+    allBtn.textContent = 'すべて';
+    allBtn.onclick = () => setPrefFilter(null, allBtn);
+    el.appendChild(allBtn);
+    BLOCKS.forEach(b => {
+        PREFS.filter(p => p.centerBlockId === b.centerBlockId).forEach(p => {
+            const btn = document.createElement('button');
+            btn.className = 'pref-filter-btn';
+            btn.textContent = p.prefName;
+            btn.onclick = () => setPrefFilter(p.prefId, btn);
+            el.appendChild(btn);
+        });
+    });
+}
+function setPrefFilter(prefId, btn) {
+    _pickerPref = prefId;
+    document.querySelectorAll('.pref-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filterRooms();
+}
+function filterRooms() {
+    const q = document.getElementById('roomPickerSearch').value.trim().toLowerCase();
+    const list = document.getElementById('roomPickerList');
+    const filtered = ROOMS.filter(r => {
+        if (_pickerPref && r.prefId !== _pickerPref) return false;
+        if (q && r.roomName.toLowerCase().indexOf(q) === -1) return false;
+        return true;
+    });
+    list.innerHTML = '';
+    if (filtered.length === 0) {
+        list.innerHTML = '<div class="room-list-empty">該当するルームがありません</div>';
+        return;
+    }
+    filtered.forEach(r => {
+        const item = document.createElement('div');
+        item.className = 'room-list-item';
+        const nameSpan = document.createElement('span');
+        nameSpan.style.flex = '1';
+        nameSpan.textContent = r.roomName;
+        const prefSpan = document.createElement('span');
+        prefSpan.className = 'room-pref-tag';
+        prefSpan.textContent = PREF_MAP[r.prefId] || '';
+        item.appendChild(nameSpan);
+        item.appendChild(prefSpan);
+        item.onclick = () => selectRoom(r.roomId, r.roomName);
+        list.appendChild(item);
+    });
+}
+function selectRoom(id, name) {
+    closeRoomPicker();
+    document.getElementById('singleRoomId').value = id;
+    document.getElementById('singleRoomName').textContent = name;
+}
+function clearSingleRoom() {
+    document.getElementById('singleRoomId').value = '';
+    document.getElementById('singleRoomName').textContent = 'ルームを選択…';
+}
+
+async function runSingleCheck(btn) {
+    const roomId = document.getElementById('singleRoomId').value;
+    if (!roomId) { alert('ルームを選択してください。'); return; }
+    const resultEl = document.getElementById('result-run-room-check-single');
+    resultEl.className = 'result-box';
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<span class="spinner"></span>実行中…';
+    btn.disabled = true;
+    try {
+        const fd = new FormData();
+        fd.append('roomId', roomId);
+        const res  = await fetch('/admin/run-room-check-single', { method: 'POST', body: fd });
+        const data = await res.json();
+        resultEl.className = 'result-box ' + (data.success ? 'ok' : 'err');
+        resultEl.textContent = data.message;
+    } catch (e) {
+        resultEl.className = 'result-box err';
+        resultEl.textContent = '通信エラー: ' + e.message;
+    } finally {
+        btn.disabled = false;
+    }
+}
+
 async function runAction(action, btn) {
     const resultEl = document.getElementById('result-' + action);
     resultEl.className = 'result-box';
     resultEl.style.display = 'block';
     resultEl.innerHTML = '<span class="spinner"></span>実行中…';
     btn.disabled = true;
-
     try {
-        const res  = await fetch('/admin/' + action, {
-            method: 'POST',
-            headers: { 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '' }
-        });
+        const res  = await fetch('/admin/' + action, { method: 'POST' });
         const data = await res.json();
         resultEl.className = 'result-box ' + (data.success ? 'ok' : 'err');
         resultEl.textContent = data.message;

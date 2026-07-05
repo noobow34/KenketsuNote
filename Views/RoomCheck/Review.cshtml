@@ -15,25 +15,28 @@
     <title>献血ルーム情報変更レビュー | けんけつノート</title>
     <style>
         body { font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif; background: #fafafa; color: #333; margin: 0; padding: 16px; }
-        .wrap { max-width: 720px; margin: 0 auto; }
+        .wrap { max-width: 760px; margin: 0 auto; }
         h1 { color: #b71c1c; font-size: 1.2rem; }
         .room-name { font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; }
         .checked-at { font-size: 0.8rem; color: #999; margin-bottom: 16px; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
         th, td { padding: 10px 12px; text-align: left; border: 1px solid #ddd; font-size: 0.9rem; }
         th { background: #f5f5f5; font-weight: 600; width: 130px; }
+        td.col-check { width: 64px; text-align: center; }
         .val-db     { color: #333; }
         .val-gemini { color: #1565c0; font-weight: 600; }
         .changed    { background: #fff8e1; }
         .changes-box { background: #fff3e0; border-left: 4px solid #e65100; padding: 12px 16px; margin-bottom: 24px; border-radius: 4px; font-size: 0.9rem; }
         .changes-box ul { margin: 6px 0 0; padding-left: 18px; }
-        .btn-row { display: flex; gap: 12px; }
+        .btn-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
         .btn-approve { background: #d32f2f; color: white; border: none; padding: 12px 28px; border-radius: 8px; font-size: 1rem; cursor: pointer; font-weight: 600; }
         .btn-dismiss { background: #fff; color: #666; border: 1px solid #ccc; padding: 12px 28px; border-radius: 8px; font-size: 1rem; cursor: pointer; }
         .btn-approve:hover { background: #b71c1c; }
         .btn-dismiss:hover { background: #f5f5f5; }
         .official-link { font-size: 0.85rem; margin-bottom: 16px; }
         .official-link a { color: #1565c0; }
+        input[type=checkbox] { width: 18px; height: 18px; cursor: pointer; accent-color: #d32f2f; }
+        .col-check-header { width: 64px; text-align: center; font-size: 0.8rem; }
     </style>
 </head>
 <body>
@@ -60,104 +63,127 @@
         </div>
     }
 
-    <table>
-        <thead>
-            <tr><th>項目</th><th>現在のDB値</th><th>Gemini抽出値</th></tr>
-        </thead>
-        <tbody>
-            @{
-                bool CityChanged      = gemini?.City       != null && gemini.City       != room?.City;
-                bool WholeChanged     = gemini?.CanWhole   != null && gemini.CanWhole   != room?.CanWhole;
-                bool PlasmaChanged    = gemini?.CanPlasma  != null && gemini.CanPlasma  != room?.CanPlasma;
-                bool PlateletChanged  = gemini?.CanPlatelet != null && gemini.CanPlatelet != room?.CanPlatelet;
-                bool ClosedChanged    = gemini?.ClosedDays != null && gemini.ClosedDays != room?.ClosedDays;
+    <form method="post" action="/admin/room-check/@result?.Id/approve?token=@token">
 
-                string Bool2Str(bool? v) => v == true ? "可" : v == false ? "不可" : "未設定";
-            }
-            <tr class="@(CityChanged ? "changed" : "")">
-                <th>市区町村</th>
-                <td class="val-db">@(room?.City ?? "未設定")</td>
-                <td class="val-gemini">@(gemini?.City ?? "-")</td>
-            </tr>
-            <tr class="@(WholeChanged ? "changed" : "")">
-                <th>全血</th>
-                <td class="val-db">@Bool2Str(room?.CanWhole)</td>
-                <td class="val-gemini">@Bool2Str(gemini?.CanWhole)</td>
-            </tr>
-            <tr class="@(PlasmaChanged ? "changed" : "")">
-                <th>血漿成分</th>
-                <td class="val-db">@Bool2Str(room?.CanPlasma)</td>
-                <td class="val-gemini">@Bool2Str(gemini?.CanPlasma)</td>
-            </tr>
-            <tr class="@(PlateletChanged ? "changed" : "")">
-                <th>血小板成分</th>
-                <td class="val-db">@Bool2Str(room?.CanPlatelet)</td>
-                <td class="val-gemini">@Bool2Str(gemini?.CanPlatelet)</td>
-            </tr>
-            <tr class="@(ClosedChanged ? "changed" : "")">
-                <th>定休日</th>
-                <td class="val-db">@(room?.ClosedDays ?? "なし")</td>
-                <td class="val-gemini">@(gemini?.ClosedDays ?? "-")</td>
-            </tr>
-        </tbody>
-    </table>
+        @{
+            bool CityChanged     = gemini?.City        != null && gemini.City        != room?.City;
+            bool WholeChanged    = gemini?.CanWhole    != null && gemini.CanWhole    != room?.CanWhole;
+            bool PlasmaChanged   = gemini?.CanPlasma   != null && gemini.CanPlasma   != room?.CanPlasma;
+            bool PlateletChanged = gemini?.CanPlatelet != null && gemini.CanPlatelet != room?.CanPlatelet;
+            bool ClosedChanged   = gemini?.ClosedDays  != null && gemini.ClosedDays  != room?.ClosedDays;
 
-    @if (gemini?.BusinessHours is { Count: > 0 } || room?.BusinessHours.Count > 0)
-    {
-        <h2 style="font-size:1rem;color:#b71c1c;margin-bottom:8px;">営業時間</h2>
+            string Bool2Str(bool? v) => v == true ? "可" : v == false ? "不可" : "未設定";
+        }
+
         <table>
             <thead>
-                <tr><th style="width:80px;">区分</th><th>現在のDB値</th><th>Gemini抽出値</th></tr>
+                <tr>
+                    <th>項目</th>
+                    <th>現在のDB値</th>
+                    <th>Gemini抽出値</th>
+                    <th class="col-check-header">反映する</th>
+                </tr>
             </thead>
             <tbody>
-                @{
-                    string DbTime(TimeOnly? s, TimeOnly? e) => s.HasValue ? $"{s:HH\\:mm}〜{e:HH\\:mm}" : "なし";
-                    string GmTime(string? s, string? e) => s != null ? $"{s}〜{e}" : "なし";
-                }
-                @foreach (var dayType in new[] { 0, 1 })
-                {
-                    var label = dayType == 0 ? "平日" : "土日祝";
-                    var dbH = room?.BusinessHours.FirstOrDefault(h => h.DayType == dayType);
-                    var gmH = gemini?.BusinessHours?.FirstOrDefault(h => h.DayType == dayType);
-
-                    var wholeChg      = dbH != null && gmH != null && $"{dbH.WholeReceptionStart:HH\\:mm}〜{dbH.WholeReceptionEnd:HH\\:mm}" != $"{gmH.WholeReceptionStart}〜{gmH.WholeReceptionEnd}";
-                    var wholeLunchChg = dbH != null && gmH != null && $"{dbH.WholeLunchStart:HH\\:mm}〜{dbH.WholeLunchEnd:HH\\:mm}"         != $"{gmH.WholeLunchStart}〜{gmH.WholeLunchEnd}";
-                    var compChg       = dbH != null && gmH != null && $"{dbH.CompReceptionStart:HH\\:mm}〜{dbH.CompReceptionEnd:HH\\:mm}"   != $"{gmH.CompReceptionStart}〜{gmH.CompReceptionEnd}";
-                    var compLunchChg  = dbH != null && gmH != null && $"{dbH.CompLunchStart:HH\\:mm}〜{dbH.CompLunchEnd:HH\\:mm}"           != $"{gmH.CompLunchStart}〜{gmH.CompLunchEnd}";
-
-                    <tr class="@(wholeChg ? "changed" : "")">
-                        <th>@label 全血受付</th>
-                        <td class="val-db">@DbTime(dbH?.WholeReceptionStart, dbH?.WholeReceptionEnd)</td>
-                        <td class="val-gemini">@GmTime(gmH?.WholeReceptionStart, gmH?.WholeReceptionEnd)</td>
-                    </tr>
-                    <tr class="@(wholeLunchChg ? "changed" : "")">
-                        <th>@label 全血昼中断</th>
-                        <td class="val-db">@DbTime(dbH?.WholeLunchStart, dbH?.WholeLunchEnd)</td>
-                        <td class="val-gemini">@GmTime(gmH?.WholeLunchStart, gmH?.WholeLunchEnd)</td>
-                    </tr>
-                    <tr class="@(compChg ? "changed" : "")">
-                        <th>@label 成分受付</th>
-                        <td class="val-db">@DbTime(dbH?.CompReceptionStart, dbH?.CompReceptionEnd)</td>
-                        <td class="val-gemini">@GmTime(gmH?.CompReceptionStart, gmH?.CompReceptionEnd)</td>
-                    </tr>
-                    <tr class="@(compLunchChg ? "changed" : "")">
-                        <th>@label 成分昼中断</th>
-                        <td class="val-db">@DbTime(dbH?.CompLunchStart, dbH?.CompLunchEnd)</td>
-                        <td class="val-gemini">@GmTime(gmH?.CompLunchStart, gmH?.CompLunchEnd)</td>
-                    </tr>
-                }
+                <tr class="@(CityChanged ? "changed" : "")">
+                    <th>市区町村</th>
+                    <td class="val-db">@(room?.City ?? "未設定")</td>
+                    <td class="val-gemini">@(gemini?.City ?? "-")</td>
+                    <td class="col-check">@if (CityChanged) { <input type="checkbox" name="fields" value="city" checked /> }</td>
+                </tr>
+                <tr class="@(WholeChanged ? "changed" : "")">
+                    <th>全血</th>
+                    <td class="val-db">@Bool2Str(room?.CanWhole)</td>
+                    <td class="val-gemini">@Bool2Str(gemini?.CanWhole)</td>
+                    <td class="col-check">@if (WholeChanged) { <input type="checkbox" name="fields" value="can_whole" checked /> }</td>
+                </tr>
+                <tr class="@(PlasmaChanged ? "changed" : "")">
+                    <th>血漿成分</th>
+                    <td class="val-db">@Bool2Str(room?.CanPlasma)</td>
+                    <td class="val-gemini">@Bool2Str(gemini?.CanPlasma)</td>
+                    <td class="col-check">@if (PlasmaChanged) { <input type="checkbox" name="fields" value="can_plasma" checked /> }</td>
+                </tr>
+                <tr class="@(PlateletChanged ? "changed" : "")">
+                    <th>血小板成分</th>
+                    <td class="val-db">@Bool2Str(room?.CanPlatelet)</td>
+                    <td class="val-gemini">@Bool2Str(gemini?.CanPlatelet)</td>
+                    <td class="col-check">@if (PlateletChanged) { <input type="checkbox" name="fields" value="can_platelet" checked /> }</td>
+                </tr>
+                <tr class="@(ClosedChanged ? "changed" : "")">
+                    <th>定休日</th>
+                    <td class="val-db">@(room?.ClosedDays ?? "なし")</td>
+                    <td class="val-gemini">@(gemini?.ClosedDays ?? "-")</td>
+                    <td class="col-check">@if (ClosedChanged) { <input type="checkbox" name="fields" value="closed_days" checked /> }</td>
+                </tr>
             </tbody>
         </table>
-    }
 
-    <div class="btn-row">
-        <form method="post" action="/admin/room-check/@result?.Id/approve?token=@token">
-            <button type="submit" class="btn-approve">✅ 承認してDBに反映する</button>
-        </form>
-        <form method="post" action="/admin/room-check/@result?.Id/dismiss?token=@token">
-            <button type="submit" class="btn-dismiss">❌ 却下する（DBは変更しない）</button>
-        </form>
-    </div>
+        @if (gemini?.BusinessHours is { Count: > 0 } || room?.BusinessHours.Count > 0)
+        {
+            <h2 style="font-size:1rem;color:#b71c1c;margin-bottom:8px;">営業時間</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:80px;">区分</th>
+                        <th>現在のDB値</th>
+                        <th>Gemini抽出値</th>
+                        <th class="col-check-header">反映する</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{
+                        string DbTime(TimeOnly? s, TimeOnly? e) => s.HasValue ? $"{s:HH\\:mm}〜{e:HH\\:mm}" : "なし";
+                        string GmTime(string? s, string? e) => s != null ? $"{s}〜{e}" : "なし";
+                    }
+                    @foreach (var dayType in new[] { 0, 1 })
+                    {
+                        var label = dayType == 0 ? "平日" : "土日祝";
+                        var fieldName = $"business_hours_{dayType}";
+                        var dbH = room?.BusinessHours.FirstOrDefault(h => h.DayType == dayType);
+                        var gmH = gemini?.BusinessHours?.FirstOrDefault(h => h.DayType == dayType);
+
+                        var wholeChg      = dbH != null && gmH != null && $"{dbH.WholeReceptionStart:HH\\:mm}〜{dbH.WholeReceptionEnd:HH\\:mm}" != $"{gmH.WholeReceptionStart}〜{gmH.WholeReceptionEnd}";
+                        var wholeLunchChg = dbH != null && gmH != null && $"{dbH.WholeLunchStart:HH\\:mm}〜{dbH.WholeLunchEnd:HH\\:mm}"         != $"{gmH.WholeLunchStart}〜{gmH.WholeLunchEnd}";
+                        var compChg       = dbH != null && gmH != null && $"{dbH.CompReceptionStart:HH\\:mm}〜{dbH.CompReceptionEnd:HH\\:mm}"   != $"{gmH.CompReceptionStart}〜{gmH.CompReceptionEnd}";
+                        var compLunchChg  = dbH != null && gmH != null && $"{dbH.CompLunchStart:HH\\:mm}〜{dbH.CompLunchEnd:HH\\:mm}"           != $"{gmH.CompLunchStart}〜{gmH.CompLunchEnd}";
+                        var anyHoursChg   = wholeChg || wholeLunchChg || compChg || compLunchChg;
+
+                        <tr class="@(wholeChg ? "changed" : "")">
+                            <th>@label 全血受付</th>
+                            <td class="val-db">@DbTime(dbH?.WholeReceptionStart, dbH?.WholeReceptionEnd)</td>
+                            <td class="val-gemini">@GmTime(gmH?.WholeReceptionStart, gmH?.WholeReceptionEnd)</td>
+                            <td class="col-check" rowspan="4">@if (anyHoursChg) { <input type="checkbox" name="fields" value="@fieldName" checked /> }</td>
+                        </tr>
+                        <tr class="@(wholeLunchChg ? "changed" : "")">
+                            <th>@label 全血昼中断</th>
+                            <td class="val-db">@DbTime(dbH?.WholeLunchStart, dbH?.WholeLunchEnd)</td>
+                            <td class="val-gemini">@GmTime(gmH?.WholeLunchStart, gmH?.WholeLunchEnd)</td>
+                        </tr>
+                        <tr class="@(compChg ? "changed" : "")">
+                            <th>@label 成分受付</th>
+                            <td class="val-db">@DbTime(dbH?.CompReceptionStart, dbH?.CompReceptionEnd)</td>
+                            <td class="val-gemini">@GmTime(gmH?.CompReceptionStart, gmH?.CompReceptionEnd)</td>
+                        </tr>
+                        <tr class="@(compLunchChg ? "changed" : "")">
+                            <th>@label 成分昼中断</th>
+                            <td class="val-db">@DbTime(dbH?.CompLunchStart, dbH?.CompLunchEnd)</td>
+                            <td class="val-gemini">@GmTime(gmH?.CompLunchStart, gmH?.CompLunchEnd)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        <div class="btn-row">
+            <button type="submit" class="btn-approve">✅ 選択した項目をDBに反映する</button>
+            <form method="post" action="/admin/room-check/@result?.Id/dismiss?token=@token">
+                <button type="submit" class="btn-dismiss">❌ 却下する（DBは変更しない）</button>
+            </form>
+        </div>
+
+    </form>
+
+    <p style="margin-top:20px;"><a href="/admin" style="color:#1565c0;font-size:0.9rem;">← 管理画面に戻る</a></p>
 </div>
 </body>
 </html>

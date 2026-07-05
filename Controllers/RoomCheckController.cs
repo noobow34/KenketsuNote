@@ -38,10 +38,12 @@ public class RoomCheckController : Controller
         return View();
     }
 
-    // 承認：Gemini抽出値をkenketsu_roomに反映
+    // 承認：選択された項目のみkenketsu_roomに反映
     [HttpPost("{id:long}/approve")]
-    public async Task<IActionResult> Approve(long id, [FromQuery] Guid token)
+    public async Task<IActionResult> Approve(long id, [FromQuery] Guid token, [FromForm] List<string> fields)
     {
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
+
         var result = await _db.RoomCheckResults
             .Include(r => r.Room)
             .ThenInclude(r => r!.BusinessHours)
@@ -50,24 +52,29 @@ public class RoomCheckController : Controller
         if (result is null) return NotFound("リンクが無効です。");
         if (result.Resolved) return Content("この変更はすでに対応済みです。");
 
-        if (result.GeminiResult is not null && result.Room is not null)
+        if (result.GeminiResult is not null && result.Room is not null && fields.Count > 0)
         {
             var gemini = JsonSerializer.Deserialize<RoomInfoCheckJob.GeminiRoomCheckResponse>(result.GeminiResult,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
             if (gemini is not null)
             {
-                if (gemini.City        is not null) result.Room.City        = gemini.City;
-                if (gemini.CanWhole    is not null) result.Room.CanWhole    = gemini.CanWhole;
-                if (gemini.CanPlasma   is not null) result.Room.CanPlasma   = gemini.CanPlasma;
-                if (gemini.CanPlatelet is not null) result.Room.CanPlatelet = gemini.CanPlatelet;
-                if (gemini.ClosedDays  is not null) result.Room.ClosedDays  = gemini.ClosedDays;
+                if (fields.Contains("city")        && gemini.City        is not null) result.Room.City        = gemini.City;
+                if (fields.Contains("can_whole")   && gemini.CanWhole    is not null) result.Room.CanWhole    = gemini.CanWhole;
+                if (fields.Contains("can_plasma")  && gemini.CanPlasma   is not null) result.Room.CanPlasma   = gemini.CanPlasma;
+                if (fields.Contains("can_platelet")&& gemini.CanPlatelet is not null) result.Room.CanPlatelet = gemini.CanPlatelet;
+                if (fields.Contains("closed_days") && gemini.ClosedDays  is not null) result.Room.ClosedDays  = gemini.ClosedDays;
 
-                // 営業時間：既存を全削除して再挿入
-                if (gemini.BusinessHours is { Count: > 0 })
+                // 営業時間：選択された区分(day_type)のみ削除して再挿入
+                var targetDayTypes = new List<int>();
+                if (fields.Contains("business_hours_0")) targetDayTypes.Add(0);
+                if (fields.Contains("business_hours_1")) targetDayTypes.Add(1);
+
+                if (targetDayTypes.Count > 0 && gemini.BusinessHours is { Count: > 0 })
                 {
-                    _db.RoomBusinessHours.RemoveRange(result.Room.BusinessHours);
-                    foreach (var h in gemini.BusinessHours)
+                    var toRemove = result.Room.BusinessHours.Where(h => targetDayTypes.Contains(h.DayType)).ToList();
+                    _db.RoomBusinessHours.RemoveRange(toRemove);
+                    foreach (var h in gemini.BusinessHours.Where(h => targetDayTypes.Contains(h.DayType)))
                     {
                         _db.RoomBusinessHours.Add(new RoomBusinessHours
                         {

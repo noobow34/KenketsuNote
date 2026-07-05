@@ -17,7 +17,7 @@ public class RoomInfoCheckJob : IJob
     private const int MaxRetry = 3;
 
     private static readonly string GeminiApiUrl =
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent";
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent";
     private static readonly string SlackApiUrl = "https://slack.com/api/chat.postMessage";
 
     public async Task Execute(IJobExecutionContext context)
@@ -72,48 +72,11 @@ public class RoomInfoCheckJob : IJob
 
         Console.WriteLine($"[RoomInfoCheckJob] offset={state.NextOffset} 対象={rooms.Count}件");
 
-        using var http = new HttpClient();
-        http.DefaultRequestHeaders.Add("User-Agent", ".NET HttpClient / Noobow Bot (contact: https://noobow-bot-contact.pages.dev/)");
-
         foreach (var room in rooms.OrderBy(r => r.RoomId))
         {
             try
             {
-                Console.WriteLine($"[RoomInfoCheckJob] チェック開始: {room.RoomName} ({room.RoomUrl})");
-
-                var html = await FetchPageAsync(http, room.RoomUrl!);
-                if (html is null)
-                {
-                    Console.WriteLine($"[RoomInfoCheckJob] ページ取得失敗: {room.RoomName}");
-                    continue;
-                }
-
-                var geminiResult = await CallGeminiWithRetryAsync(geminiApiKey, room, html);
-                if (geminiResult is null) continue;
-
-                var result = new RoomCheckResult
-                {
-                    RoomId       = room.RoomId,
-                    CheckedAt    = DateTimeOffset.UtcNow,
-                    GeminiResult = JsonSerializer.Serialize(geminiResult),
-                    HasChanges   = geminiResult.HasChanges,
-                    Changes      = geminiResult.Changes is { Count: > 0 }
-                                    ? string.Join(", ", geminiResult.Changes)
-                                    : null,
-                };
-                db.RoomCheckResults.Add(result);
-                await db.SaveChangesAsync();
-
-                if (geminiResult.HasChanges)
-                {
-                    Console.WriteLine($"[RoomInfoCheckJob] 差分検出: {room.RoomName} → {result.Changes}");
-                    var reviewUrl = $"{baseUrl}/admin/room-check/{result.Id}?token={result.ReviewToken}";
-                    await NotifySlackAsync(slackBotToken, slackChannel, room, result.Changes, reviewUrl);
-                }
-                else
-                {
-                    Console.WriteLine($"[RoomInfoCheckJob] 差分なし: {room.RoomName}");
-                }
+                await ProcessRoomAsync(room, db, geminiApiKey, slackBotToken, slackChannel, baseUrl);
             }
             catch (Exception ex)
             {
@@ -131,35 +94,51 @@ public class RoomInfoCheckJob : IJob
         Console.WriteLine($"[RoomInfoCheckJob] 完了。次回offset={state.NextOffset}");
     }
 
-    // ── JRCページ取得 ─────────────────────────────────────
-    private static async Task<string?> FetchPageAsync(HttpClient http, string url)
+    // ── 1ルーム分の処理（バッチ・単体実行共通） ──────────
+    public static async Task ProcessRoomAsync(
+        KenketsuRoom room, KenketsuNoteContext db,
+        string geminiApiKey, string slackBotToken, string slackChannel, string baseUrl)
     {
-        try
+        Console.WriteLine($"[RoomInfoCheckJob] チェック開始: {room.RoomName} ({room.RoomUrl})");
+
+        var job = new RoomInfoCheckJob();
+        var geminiResult = await job.CallGeminiWithRetryAsync(geminiApiKey, room, room.RoomUrl!);
+        if (geminiResult is null) return;
+
+        var result = new RoomCheckResult
         {
-            var bytes = await http.GetByteArrayAsync(url);
-            // JRCサイトはShift_JISのページが混在するため文字コードを考慮
-            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-            var content = Encoding.UTF8.GetString(bytes);
-            // UTF-8デコードで文字化けしている場合はShift_JISで再試行
-            if (content.Contains('?') && content.Contains("Shift_JIS", StringComparison.OrdinalIgnoreCase))
-                content = Encoding.GetEncoding("Shift_JIS").GetString(bytes);
-            return content;
+            RoomId       = room.RoomId,
+            CheckedAt    = DateTimeOffset.UtcNow,
+            GeminiResult = JsonSerializer.Serialize(geminiResult, new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }),
+            HasChanges   = geminiResult.HasChanges,
+            Changes      = geminiResult.Changes is { Count: > 0 }
+                            ? string.Join(", ", geminiResult.Changes)
+                            : null,
+        };
+        db.RoomCheckResults.Add(result);
+        await db.SaveChangesAsync();
+
+        if (geminiResult.HasChanges)
+        {
+            Console.WriteLine($"[RoomInfoCheckJob] 差分検出: {room.RoomName} → {result.Changes}");
+            var reviewUrl = $"{baseUrl}/admin/room-check/{result.Id}?token={result.ReviewToken}";
+            await NotifySlackAsync(slackBotToken, slackChannel, room, result.Changes, reviewUrl);
         }
-        catch
+        else
         {
-            return null;
+            Console.WriteLine($"[RoomInfoCheckJob] 差分なし: {room.RoomName}");
         }
     }
 
     // ── Gemini呼び出し（リトライあり） ───────────────────
     private async Task<GeminiRoomCheckResponse?> CallGeminiWithRetryAsync(
-        string apiKey, KenketsuRoom room, string html)
+        string apiKey, KenketsuRoom room, string url)
     {
         for (int attempt = 0; attempt < MaxRetry; attempt++)
         {
             try
             {
-                return await CallGeminiAsync(apiKey, room, html);
+                return await CallGeminiAsync(apiKey, room, url);
             }
             catch (GeminiRateLimitException)
             {
@@ -176,17 +155,8 @@ public class RoomInfoCheckJob : IJob
     }
 
     private async Task<GeminiRoomCheckResponse?> CallGeminiAsync(
-        string apiKey, KenketsuRoom room, string html)
+        string apiKey, KenketsuRoom room, string url)
     {
-        // HTMLから本文部分のみ抽出（トークン削減）
-        var bodyStart = html.IndexOf("<body", StringComparison.OrdinalIgnoreCase);
-        var bodyEnd   = html.LastIndexOf("</body>", StringComparison.OrdinalIgnoreCase);
-        var body = bodyStart >= 0 && bodyEnd > bodyStart
-            ? html[bodyStart..(bodyEnd + 7)]
-            : html;
-        // 最大15,000文字に切り詰め
-        if (body.Length > 15000) body = body[..15000];
-
         var dbHours = room.BusinessHours
             .OrderBy(h => h.DayType)
             .Select(h => new
@@ -203,24 +173,28 @@ public class RoomInfoCheckJob : IJob
             });
 
         var prompt = $$"""
-            以下は献血ルーム「{{room.RoomName}}」のJRC公式サイトのHTMLです。
-            このページから献血ルームの情報を読み取り、現在DBに登録されている情報と比較してください。
+            以下のURLにある献血ルーム「{{room.RoomName}}」のJRC公式ページから、下記の項目をすべてページ上の記載通りに抽出してください。
+            抽出できた値を使って、DB登録情報と比較し差分を報告してください。
 
-            【DB登録情報】
+            【DB登録情報（比較用）】
             - 市区町村: {{room.City ?? "未登録"}}
-            - 全血: {{(room.CanWhole == true ? "可" : room.CanWhole == false ? "不可" : "未設定")}}
-            - 血漿成分: {{(room.CanPlasma == true ? "可" : room.CanPlasma == false ? "不可" : "未設定")}}
-            - 血小板成分: {{(room.CanPlatelet == true ? "可" : room.CanPlatelet == false ? "不可" : "未設定")}}
+            - 全血献血: {{(room.CanWhole == true ? "可" : room.CanWhole == false ? "不可" : "未設定")}}
+            - 血漿成分献血: {{(room.CanPlasma == true ? "可" : room.CanPlasma == false ? "不可" : "未設定")}}
+            - 血小板成分献血: {{(room.CanPlatelet == true ? "可" : room.CanPlatelet == false ? "不可" : "未設定")}}
             - 定休日: {{room.ClosedDays ?? "なし"}}
             - 営業時間: {{JsonSerializer.Serialize(dbHours, new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping })}}
 
-            【HTMLコンテンツ】
-            {{body}}
+            【抽出・返答ルール】
+            - city, can_whole, can_plasma, can_platelet, closed_days, business_hours はページから必ず抽出して返してください。ページに記載がない場合のみnullにしてください。
+            - business_hours は平日(day_type:0)と土日祝(day_type:1)をそれぞれ抽出してください。
+            - 時刻は "HH:mm" 形式（例: "09:00"）、昼中断なしの場合はnullにしてください。
+            - has_changes はDB登録情報とページ上の抽出値を比較し、1つでも差異があればtrue、完全一致ならfalseにしてください。
+            - changes にhas_changes:trueの場合は差分内容を具体的に列挙し、falseの場合は空配列にしてください。
+            - has_changesがtrueの場合、changesは必ず1件以上含めてください。
+            - JSON形式のみで返答し、他のテキストは一切含めないでください。
 
-            以下のJSON形式のみで返答してください。他のテキストは一切含めないでください。
-            時刻は "HH:mm" 形式（例: "09:00"）、昼中断なしの場合はnullにしてください。
             {
-              "city": "市区町村名（読み取れない場合はnull）",
+              "city": "市区町村名",
               "can_whole": true または false,
               "can_plasma": true または false,
               "can_platelet": true または false,
@@ -249,7 +223,17 @@ public class RoomInfoCheckJob : IJob
 
         var requestBody = new
         {
-            contents = new[] { new { parts = new[] { new { text = prompt } } } }
+            tools = new[] { new { url_context = new { } } },
+            contents = new[]
+            {
+                new
+                {
+                    parts = new object[]
+                    {
+                        new { text = $"URL: {url}\n\n{prompt}" }
+                    }
+                }
+            }
         };
 
         using var http = new HttpClient();
@@ -279,8 +263,21 @@ public class RoomInfoCheckJob : IJob
         if (rawText.EndsWith("```"))  rawText = rawText[..rawText.LastIndexOf("```")];
         rawText = rawText.Trim();
 
-        return JsonSerializer.Deserialize<GeminiRoomCheckResponse>(rawText,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var result = JsonSerializer.Deserialize<GeminiRoomCheckResponse>(rawText,
+            new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+            });
+
+        // changesが1件以上あるのにhas_changesがfalseの場合は補正
+        if (result is not null && result.Changes is { Count: > 0 } && !result.HasChanges)
+        {
+            Console.WriteLine("[RoomInfoCheckJob] has_changesがfalseだがchangesが存在するため補正します");
+            result.HasChanges = true;
+        }
+
+        return result;
     }
 
     // ── Slack通知 ─────────────────────────────────────────
@@ -295,7 +292,7 @@ public class RoomInfoCheckJob : IJob
                    $"*差分内容:* {changes ?? "詳細不明"}\n" +
                    $"<{reviewUrl}|変更内容を確認・承認する>";
 
-        var payload = new { channel, text };
+        var payload = new { channel, text, unfurl_links = false };
 
         try
         {
