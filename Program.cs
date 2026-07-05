@@ -32,11 +32,10 @@ builder.Services.AddQuartz(q =>
     var jobKey = new JobKey("RoomInfoCheckJob");
     q.AddJob<RoomInfoCheckJob>(opts => opts.WithIdentity(jobKey));
 
-    // 毎日 AM 3:00 に実行（JST = UTC+9 なので 18:00 UTC）
     q.AddTrigger(opts => opts
         .ForJob(jobKey)
         .WithIdentity("RoomInfoCheckJob-trigger")
-        .WithCronSchedule("0 0 18 * * ?"));  // UTC 18:00 = JST 3:00
+        .WithCronSchedule("0 0 12 * * ?"));  // JST 12:00
 });
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
