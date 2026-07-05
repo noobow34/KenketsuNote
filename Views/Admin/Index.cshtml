@@ -46,6 +46,11 @@ tr:hover td{background:#fafcff;}
 a{color:#1565c0;}
 .changes-text{font-size:0.8rem;color:#666;max-width:300px;}
 .empty-msg{color:#aaa;font-size:0.9rem;padding:12px 0;}
+.pagination{display:flex;align-items:center;gap:6px;margin-top:12px;font-size:0.85rem;}
+.pagination a{padding:4px 10px;border:1px solid #ddd;border-radius:6px;color:#1565c0;text-decoration:none;}
+.pagination a:hover{background:#e3f2fd;}
+.pagination .current{padding:4px 10px;border:1px solid #1565c0;border-radius:6px;background:#1565c0;color:white;font-weight:600;}
+.pagination .disabled{padding:4px 10px;color:#ccc;}
 /* ── ルームピッカー ── */
 .room-select-row{display:flex;align-items:center;gap:8px;margin-top:8px;}
 .room-select-btn{display:flex;align-items:center;justify-content:space-between;flex:1;padding:8px 10px;border:1.5px solid #e0e0e0;border-radius:8px;background:white;font-size:0.88rem;cursor:pointer;color:#333;text-align:left;}
@@ -134,7 +139,7 @@ a{color:#1565c0;}
     <div class="section">
         <div class="section-header">
             <span class="section-icon">🤖</span>
-            <span class="section-title">Gemini差分チェックログ</span>
+            <span class="section-title">Gemini差分チェックログ（@ViewBag.CheckPage ページ目 / @ViewBag.CheckTotalPages ページ）</span>
         </div>
         <div class="section-body">
             @if (!checkResults.Any())
@@ -191,6 +196,26 @@ a{color:#1565c0;}
                         }
                     </tbody>
                 </table>
+                <div class="pagination">
+                    @if (ViewBag.CheckPage > 1)
+                    {
+                        <a href="?checkPage=@(ViewBag.CheckPage - 1)&logPage=@ViewBag.LogPage">前へ</a>
+                    }
+                    else
+                    {
+                        <span class="disabled">前へ</span>
+                    }
+                    <span class="current">@ViewBag.CheckPage</span>
+                    <span>/ @ViewBag.CheckTotalPages</span>
+                    @if (ViewBag.CheckPage < ViewBag.CheckTotalPages)
+                    {
+                        <a href="?checkPage=@(ViewBag.CheckPage + 1)&logPage=@ViewBag.LogPage">次へ</a>
+                    }
+                    else
+                    {
+                        <span class="disabled">次へ</span>
+                    }
+                </div>
             }
         </div>
     </div>
@@ -199,7 +224,7 @@ a{color:#1565c0;}
     <div class="section">
         <div class="section-header">
             <span class="section-icon">🔍</span>
-            <span class="section-title">検索ログ（直近50件）</span>
+            <span class="section-title">検索ログ（@ViewBag.LogPage ページ目 / @ViewBag.LogTotalPages ページ）</span>
         </div>
         <div class="section-body">
             @if (!searchLogs.Any())
@@ -239,6 +264,26 @@ a{color:#1565c0;}
                         }
                     </tbody>
                 </table>
+                <div class="pagination">
+                    @if (ViewBag.LogPage > 1)
+                    {
+                        <a href="?checkPage=@ViewBag.CheckPage&logPage=@(ViewBag.LogPage - 1)">前へ</a>
+                    }
+                    else
+                    {
+                        <span class="disabled">前へ</span>
+                    }
+                    <span class="current">@ViewBag.LogPage</span>
+                    <span>/ @ViewBag.LogTotalPages</span>
+                    @if (ViewBag.LogPage < ViewBag.LogTotalPages)
+                    {
+                        <a href="?checkPage=@ViewBag.CheckPage&logPage=@(ViewBag.LogPage + 1)">次へ</a>
+                    }
+                    else
+                    {
+                        <span class="disabled">次へ</span>
+                    }
+                </div>
             }
         </div>
     </div>

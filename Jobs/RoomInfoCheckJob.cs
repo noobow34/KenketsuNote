@@ -114,6 +114,7 @@ public class RoomInfoCheckJob : IJob
             Changes      = geminiResult.Changes is { Count: > 0 }
                             ? string.Join(", ", geminiResult.Changes)
                             : null,
+            Resolved     = !geminiResult.HasChanges,
         };
         db.RoomCheckResults.Add(result);
         await db.SaveChangesAsync();

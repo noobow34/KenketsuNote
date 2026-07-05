@@ -21,25 +21,40 @@ public class AdminController : Controller
         _schedulerFactory = schedulerFactory;
     }
 
+    private const int CheckPageSize = 20;
+    private const int LogPageSize   = 50;
+
     [HttpGet("")]
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index([FromQuery] int checkPage = 1, [FromQuery] int logPage = 1)
     {
         if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
 
+        checkPage = Math.Max(1, checkPage);
+        logPage   = Math.Max(1, logPage);
+
+        var checkTotal = await _db.RoomCheckResults.CountAsync();
         var checkResults = await _db.RoomCheckResults
             .Include(r => r.Room)
             .OrderBy(r => r.Resolved)
             .ThenByDescending(r => r.CheckedAt)
-            .Take(100)
+            .Skip((checkPage - 1) * CheckPageSize)
+            .Take(CheckPageSize)
             .ToListAsync();
 
+        var logTotal = await _db.RoomSearchLogs.CountAsync();
         var searchLogs = await _db.RoomSearchLogs
             .OrderByDescending(l => l.SearchedAt)
-            .Take(50)
+            .Skip((logPage - 1) * LogPageSize)
+            .Take(LogPageSize)
             .ToListAsync();
 
-        ViewBag.CheckResults = checkResults;
-        ViewBag.SearchLogs = searchLogs;
+        ViewBag.CheckResults  = checkResults;
+        ViewBag.CheckPage     = checkPage;
+        ViewBag.CheckTotalPages = (int)Math.Ceiling(checkTotal / (double)CheckPageSize);
+
+        ViewBag.SearchLogs  = searchLogs;
+        ViewBag.LogPage     = logPage;
+        ViewBag.LogTotalPages = (int)Math.Ceiling(logTotal / (double)LogPageSize);
 
         var jsonOpt = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
         ViewBag.RoomsJson  = JsonSerializer.Serialize(MasterData.Rooms.Where(r => !r.IsClosed).Select(r => new { r.RoomId, r.RoomName, r.PrefId, r.IsClosed }), jsonOpt);
