@@ -1,5 +1,7 @@
-﻿@{
+﻿@using KenketsuNote.Auth
+@{
     Layout = null;
+    bool isAdmin = AdminAuth.IsAdmin(Context);
 }
 <!DOCTYPE html>
 <html lang="ja">
@@ -395,6 +397,9 @@
 
     <footer>
         運営者：<a href="https://x.com/noobow">ぬーぼー</a>
+        @if (isAdmin) {
+            <span style="margin-left:16px;">｜ <a href="/admin">管理画面</a></span>
+        }
     </footer>
 
 </div>
