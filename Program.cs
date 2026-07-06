@@ -1,9 +1,9 @@
 using Auth0.AspNetCore.Authentication;
 using KenketsuNote.Data;
-using KenketsuNote.Middleware;
 using KenketsuNote.Infrastructure;
-using KenketsuNote.Data;
 using KenketsuNote.Jobs;
+using KenketsuNote.Middleware;
+using Microsoft.AspNetCore.HttpOverrides;
 using Quartz;
 
 string connectionString = Environment.GetEnvironmentVariable("KENKETSUNOTE_CONNECTION_STRING") ?? "";
@@ -51,6 +51,10 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Home/Error");
 }
 
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor
+});
 app.UseRouting();
 app.UseAuthentication();
 app.UseMiddleware<ConditionalAuthRedirectMiddleware>();
