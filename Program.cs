@@ -1,4 +1,5 @@
 using Auth0.AspNetCore.Authentication;
+using KenketsuNote.Data;
 using KenketsuNote.Middleware;
 using KenketsuNote.Infrastructure;
 using KenketsuNote.Data;
@@ -54,6 +55,7 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseMiddleware<ConditionalAuthRedirectMiddleware>();
 app.UseAuthorization();
+app.UseMiddleware<AccessLogMiddleware>();
 app.MapStaticAssets();
 
 app.MapControllerRoute(

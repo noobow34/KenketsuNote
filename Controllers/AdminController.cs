@@ -69,6 +69,18 @@ public class AdminController : Controller
         ViewBag.ScheduledHour   = jobState?.ScheduledHour   ?? 6;
         ViewBag.ScheduledMinute = jobState?.ScheduledMinute ?? 30;
 
+        // アクセス統計（直近14日）
+        var since = DateTimeOffset.UtcNow.AddDays(-13).Date;
+        var accessQuery = _db.AccessLogs.Where(l => l.AccessedAt >= since);
+        if (hideAdmin) accessQuery = accessQuery.Where(l => !l.IsAdmin);
+        var accessStats = await accessQuery
+            .GroupBy(l => new { l.Page, Date = l.AccessedAt.Date })
+            .Select(g => new { g.Key.Page, g.Key.Date, Count = g.Count() })
+            .OrderByDescending(x => x.Date)
+            .ThenBy(x => x.Page)
+            .ToListAsync();
+        ViewBag.AccessStats = accessStats;
+
         return View();
     }
 

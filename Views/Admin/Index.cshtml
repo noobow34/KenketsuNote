@@ -93,6 +93,64 @@ a{color:#1565c0;}
 
 <div class="wrap">
 
+    <!-- ── アクセス統計 ── -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-icon">📊</span>
+            <span class="section-title">アクセス統計（直近14日）</span>
+        </div>
+        <div class="section-body">
+            <div style="margin-bottom:10px;">
+                <label style="font-size:0.85rem;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                    <input type="checkbox" id="hideAdminAccessCheck" @(hideAdmin ? "checked" : "")
+                           onchange="location.href='?checkPage=@ViewBag.CheckPage&logPage=@ViewBag.LogPage&hideAdmin='+(this.checked?'true':'false')">
+                    管理者のアクセスを除外
+                </label>
+            </div>
+            @{
+                var accessStats = ViewBag.AccessStats as IEnumerable<dynamic> ?? Enumerable.Empty<dynamic>();
+                var statsList = accessStats.ToList();
+                var pageNames = statsList.Select(s => (string)s.Page).Distinct().OrderBy(p => p).ToList();
+                var dates     = statsList.Select(s => (DateTime)s.Date).Distinct().OrderByDescending(d => d).ToList();
+                var statMap   = statsList.ToDictionary(s => $"{(string)s.Page}_{((DateTime)s.Date):yyyyMMdd}", s => (int)s.Count);
+            }
+            @if (!dates.Any())
+            {
+                <p class="empty-msg">アクセスログはありません。</p>
+            }
+            else
+            {
+                <div style="overflow-x:auto;">
+                    <table style="min-width:max-content;">
+                        <thead>
+                            <tr>
+                                <th style="white-space:nowrap;">ページ</th>
+                                @foreach (var d in dates)
+                                {
+                                    <th style="white-space:nowrap;text-align:center;">@d.AddHours(9).ToString("M/d")</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var pageName in pageNames)
+                            {
+                                <tr>
+                                    <td style="white-space:nowrap;font-size:0.82rem;color:#555;">@pageName</td>
+                                    @foreach (var d in dates)
+                                    {
+                                        var key = $"{pageName}_{d:yyyyMMdd}";
+                                        var cnt = statMap.TryGetValue(key, out var c) ? c : 0;
+                                        <td style="text-align:center;@(cnt > 0 ? "" : "color:#ccc;")">@(cnt > 0 ? cnt.ToString() : "—")</td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
     <!-- ── マスタデータ ── -->
     <div class="section">
         <div class="section-header">

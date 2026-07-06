@@ -19,6 +19,9 @@ public partial class KenketsuNoteContext : DbContext
     public virtual DbSet<CenterBlockOrder> CenterBlockOrders { get; set; }
     public virtual DbSet<PrefOrder> PrefOrders { get; set; }
 
+    // ── アクセスログ ──────────────────────────────────────
+    public virtual DbSet<AccessLog> AccessLogs { get; set; }
+
     // ── 検索ログ ──────────────────────────────────────────
     public virtual DbSet<RoomSearchLog> RoomSearchLogs { get; set; }
 
