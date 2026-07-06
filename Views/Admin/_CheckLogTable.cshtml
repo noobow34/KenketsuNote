@@ -1,0 +1,65 @@
+@using KenketsuNote.Data
+@{
+    var checkResults = ViewBag.CheckResults as List<RoomCheckResult> ?? new();
+}
+@if (!checkResults.Any())
+{
+    <p class="empty-msg">チェック結果はありません。</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>チェック日時</th>
+                <th>献血ルーム</th>
+                <th title="差分">差</th>
+                <th title="状態">状</th>
+                <th>変更内容</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in checkResults)
+            {
+                <tr>
+                    <td>@r.CheckedAt.ToOffset(TimeSpan.FromHours(9)).ToString("MM/dd HH:mm")</td>
+                    <td>@(r.Room?.RoomName ?? $"ID:{r.RoomId}")</td>
+                    <td style="text-align:center;font-size:1.1rem;" title="@(r.HasChanges ? "差分あり" : "変更なし")">
+                        @(r.HasChanges ? "⚠️" : "✅")
+                    </td>
+                    <td style="text-align:center;font-size:1.1rem;" title="@(r.Resolved ? "対応済み" : "未対応")">
+                        @(r.Resolved ? "🔵" : "🔴")
+                    </td>
+                    <td class="changes-text">@r.Changes</td>
+                    <td>
+                        @if (r.HasChanges && !r.Resolved)
+                        {
+                            <a href="/admin/room-check/@r.Id?token=@r.ReviewToken" title="レビュー">👁</a>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <div class="pagination">
+        @if (ViewBag.CheckPage > 1)
+        {
+            <a href="#" onclick="loadCheckPage(@(ViewBag.CheckPage - 1));return false;">前へ</a>
+        }
+        else
+        {
+            <span class="disabled">前へ</span>
+        }
+        <span class="current">@ViewBag.CheckPage</span>
+        <span>/ @ViewBag.CheckTotalPages</span>
+        @if (ViewBag.CheckPage < ViewBag.CheckTotalPages)
+        {
+            <a href="#" onclick="loadCheckPage(@(ViewBag.CheckPage + 1));return false;">次へ</a>
+        }
+        else
+        {
+            <span class="disabled">次へ</span>
+        }
+    </div>
+}

@@ -130,6 +130,25 @@ public class AdminController : Controller
         }
     }
 
+    [HttpGet("check-logs")]
+    public async Task<IActionResult> CheckLogs([FromQuery] int checkPage = 1)
+    {
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
+        checkPage = Math.Max(1, checkPage);
+        var checkTotal = await _db.RoomCheckResults.CountAsync();
+        var checkResults = await _db.RoomCheckResults
+            .Include(r => r.Room)
+            .OrderBy(r => r.Resolved)
+            .ThenByDescending(r => r.CheckedAt)
+            .Skip((checkPage - 1) * CheckPageSize)
+            .Take(CheckPageSize)
+            .ToListAsync();
+        ViewBag.CheckResults    = checkResults;
+        ViewBag.CheckPage       = checkPage;
+        ViewBag.CheckTotalPages = (int)Math.Ceiling(checkTotal / (double)CheckPageSize);
+        return PartialView("_CheckLogTable");
+    }
+
     [HttpGet("search-logs")]
     public async Task<IActionResult> SearchLogs([FromQuery] int logPage = 1, [FromQuery] bool hideAdmin = true)
     {
