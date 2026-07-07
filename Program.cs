@@ -39,8 +39,11 @@ builder.Services.AddDbContext<KenketsuNoteContext>();
 
 builder.Services.AddQuartz(q =>
 {
-    var jobKey = new JobKey("RoomInfoCheckJob");
-    q.AddJob<RoomInfoCheckJob>(opts => opts.WithIdentity(jobKey).StoreDurably());
+    var roomCheckJobKey = new JobKey("RoomInfoCheckJob");
+    q.AddJob<RoomInfoCheckJob>(opts => opts.WithIdentity(roomCheckJobKey).StoreDurably());
+
+    var cleanupJobKey = new JobKey("LogCleanupJob");
+    q.AddJob<LogCleanupJob>(opts => opts.WithIdentity(cleanupJobKey).StoreDurably());
 });
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
@@ -92,6 +95,15 @@ using (var startupScope = app.Services.CreateScope())
         .WithCronSchedule(cron)
         .Build();
     await scheduler.ScheduleJob(trigger);
+
+    // ログ削除ジョブ：毎日 3:00 (JST) に実行
+    var cleanupTrigger = TriggerBuilder.Create()
+        .WithIdentity("LogCleanupJob-trigger")
+        .ForJob(new JobKey("LogCleanupJob"))
+        .WithCronSchedule("0 0 3 * * ?")
+        .Build();
+    await scheduler.ScheduleJob(cleanupTrigger);
+    Console.WriteLine("[Quartz] LogCleanupJob スケジュール: 毎日 3:00 (JST)");
 }
 
 app.Run();

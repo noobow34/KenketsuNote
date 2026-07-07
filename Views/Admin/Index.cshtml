@@ -172,6 +172,24 @@ a{color:#1565c0;}
         </div>
     </div>
 
+    <!-- ── ログ管理 ── -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-icon">🗑️</span>
+            <span class="section-title">ログ管理</span>
+        </div>
+        <div class="section-body">
+            <div class="btn-label" style="font-size:0.88rem;margin-bottom:6px;">ログ保持期間（アクセスログ・検索ログ共通）</div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <input type="number" id="logRetentionDays" min="1" max="3650" value="@ViewBag.LogRetentionDays"
+                       style="width:80px;padding:7px;border:1.5px solid #ddd;border-radius:6px;font-size:0.95rem;text-align:center;">
+                <span style="font-size:0.9rem;color:#666;">日（毎日 3:00 JST に自動削除）</span>
+                <button class="run-single-btn" onclick="updateLogRetention(this)">変更</button>
+            </div>
+            <div class="result-box" id="result-update-log-retention"></div>
+        </div>
+    </div>
+
     <!-- ── マスタデータ ── -->
     <div class="section">
         <div class="section-header">
@@ -407,6 +425,27 @@ async function updateSchedule(btn) {
     try {
         const body = new URLSearchParams({ hour, minute });
         const res  = await fetch('/admin/update-schedule', { method: 'POST', body });
+        const data = await res.json();
+        resultEl.className = 'result-box ' + (data.success ? 'ok' : 'err');
+        resultEl.textContent = data.message;
+    } catch (e) {
+        resultEl.className = 'result-box err';
+        resultEl.textContent = '通信エラー: ' + e.message;
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function updateLogRetention(btn) {
+    const days = parseInt(document.getElementById('logRetentionDays').value, 10);
+    const resultEl = document.getElementById('result-update-log-retention');
+    resultEl.className = 'result-box';
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<span class="spinner"></span>変更中…';
+    btn.disabled = true;
+    try {
+        const body = new URLSearchParams({ days });
+        const res  = await fetch('/admin/update-log-retention', { method: 'POST', body });
         const data = await res.json();
         resultEl.className = 'result-box ' + (data.success ? 'ok' : 'err');
         resultEl.textContent = data.message;

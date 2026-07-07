@@ -23,4 +23,8 @@ public class RoomCheckJobState
 
     [Column("scheduled_minute")]
     public int ScheduledMinute { get; set; } = 30;
+
+    // アクセスログ・検索ログの保持日数（デフォルト 90日）
+    [Column("log_retention_days")]
+    public int LogRetentionDays { get; set; } = 90;
 }

@@ -66,8 +66,9 @@ public class AdminController : Controller
         ViewBag.BlocksJson = JsonSerializer.Serialize(MasterData.CenterBlocks.Select(b => new { b.CenterBlockId, b.CenterBlockName }), jsonOpt);
 
         var jobState = await _db.RoomCheckJobStates.FindAsync(1);
-        ViewBag.ScheduledHour   = jobState?.ScheduledHour   ?? 6;
-        ViewBag.ScheduledMinute = jobState?.ScheduledMinute ?? 30;
+        ViewBag.ScheduledHour    = jobState?.ScheduledHour    ?? 6;
+        ViewBag.ScheduledMinute  = jobState?.ScheduledMinute  ?? 30;
+        ViewBag.LogRetentionDays = jobState?.LogRetentionDays ?? 90;
 
         // アクセス統計（直近14日）
         var since = DateTimeOffset.UtcNow.AddHours(9).AddDays(-13).Date;
@@ -197,6 +198,25 @@ public class AdminController : Controller
         await scheduler.RescheduleJob(triggerKey, trigger);
 
         return Json(new { success = true, message = $"実行時刻を {hour:D2}:{minute:D2} (JST) に変更しました。" });
+    }
+
+    [HttpPost("update-log-retention")]
+    public async Task<IActionResult> UpdateLogRetention([FromForm] int days)
+    {
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
+        if (days < 1 || days > 3650)
+            return Json(new { success = false, message = "保持日数は1〜3650日の範囲で指定してください。" });
+
+        var state = await _db.RoomCheckJobStates.FindAsync(1);
+        if (state is null)
+        {
+            state = new RoomCheckJobState { Id = 1, NextOffset = 0 };
+            _db.RoomCheckJobStates.Add(state);
+        }
+        state.LogRetentionDays = days;
+        await _db.SaveChangesAsync();
+
+        return Json(new { success = true, message = $"ログ保持期間を {days} 日に変更しました。" });
     }
 
     [HttpPost("reload-master")]
