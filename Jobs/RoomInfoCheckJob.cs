@@ -101,8 +101,12 @@ public class RoomInfoCheckJob : IJob
     {
         Console.WriteLine($"[RoomInfoCheckJob] チェック開始: {room.RoomName} ({room.RoomUrl})");
 
+        var dismissedDiffs = await db.RoomDismissedDiffs
+            .Where(d => d.RoomId == room.RoomId)
+            .ToListAsync();
+
         var job = new RoomInfoCheckJob();
-        var geminiResult = await job.CallGeminiWithRetryAsync(geminiApiKey, room, room.RoomUrl!);
+        var geminiResult = await job.CallGeminiWithRetryAsync(geminiApiKey, room, room.RoomUrl!, dismissedDiffs);
         if (geminiResult is null) return;
 
         var result = new RoomCheckResult
@@ -133,13 +137,13 @@ public class RoomInfoCheckJob : IJob
 
     // ── Gemini呼び出し（リトライあり） ───────────────────
     private async Task<GeminiRoomCheckResponse?> CallGeminiWithRetryAsync(
-        string apiKey, KenketsuRoom room, string url)
+        string apiKey, KenketsuRoom room, string url, List<RoomDismissedDiff> dismissedDiffs)
     {
         for (int attempt = 0; attempt < MaxRetry; attempt++)
         {
             try
             {
-                return await CallGeminiAsync(apiKey, room, url);
+                return await CallGeminiAsync(apiKey, room, url, dismissedDiffs);
             }
             catch (GeminiRateLimitException)
             {
@@ -156,7 +160,7 @@ public class RoomInfoCheckJob : IJob
     }
 
     private async Task<GeminiRoomCheckResponse?> CallGeminiAsync(
-        string apiKey, KenketsuRoom room, string url)
+        string apiKey, KenketsuRoom room, string url, List<RoomDismissedDiff> dismissedDiffs)
     {
         var dbHours = room.BusinessHours
             .OrderBy(h => h.DayType)
@@ -173,10 +177,32 @@ public class RoomInfoCheckJob : IJob
                     ? $"{h.CompLunchStart:HH\\:mm}〜{h.CompLunchEnd:HH\\:mm}" : "なし",
             });
 
+        var fieldLabels = new Dictionary<string, string>
+        {
+            ["city"]             = "市区町村",
+            ["can_whole"]        = "全血献血",
+            ["can_plasma"]       = "血漿成分献血",
+            ["can_platelet"]     = "血小板成分献血",
+            ["closed_days"]      = "定休日",
+            ["business_hours_0"] = "営業時間（平日）",
+            ["business_hours_1"] = "営業時間（土日祝）",
+        };
+        var dismissedSection = dismissedDiffs.Count > 0
+            ? $"""
+
+            【確認済みの差分（再度検出しないでください）】
+            以下の項目はページとDBの値が異なりますが、管理者が確認済みのため差分として扱わないでください。
+            has_changesの判定およびchangesへの記載から除外してください。
+            {string.Join("\n", dismissedDiffs.Select(d =>
+                $"- {(fieldLabels.TryGetValue(d.Field, out var label) ? label : d.Field)}: ページ上の値は {d.GeminiValue}"))}
+
+            """
+            : "";
+
         var prompt = $$"""
             以下のURLにある献血ルーム「{{room.RoomName}}」のJRC公式ページから、下記の項目をすべてページ上の記載通りに抽出してください。
             抽出できた値を使って、DB登録情報と比較し差分を報告してください。
-
+            {{dismissedSection}}
             【DB登録情報（比較用）】
             - 市区町村: {{room.City ?? "未登録"}}
             - 全血献血: {{(room.CanWhole == true ? "可" : room.CanWhole == false ? "不可" : "未設定")}}

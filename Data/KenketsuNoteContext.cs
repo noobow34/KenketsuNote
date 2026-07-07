@@ -28,6 +28,7 @@ public partial class KenketsuNoteContext : DbContext
     // ── ルーム情報チェックジョブ ──────────────────────────
     public virtual DbSet<RoomCheckJobState> RoomCheckJobStates { get; set; }
     public virtual DbSet<RoomCheckResult> RoomCheckResults { get; set; }
+    public virtual DbSet<RoomDismissedDiff> RoomDismissedDiffs { get; set; }
 
     // ── トラッカー関連 ────────────────────────────────────
     public virtual DbSet<RoomBusinessHours> RoomBusinessHours { get; set; }
