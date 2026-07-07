@@ -9,10 +9,12 @@ namespace KenketsuNote.Controllers;
 public class RoomSearchController : Controller
 {
     private readonly KenketsuNoteContext _db;
+    private readonly IServiceScopeFactory _scopeFactory;
 
-    public RoomSearchController(KenketsuNoteContext db)
+    public RoomSearchController(KenketsuNoteContext db, IServiceScopeFactory scopeFactory)
     {
         _db = db;
+        _scopeFactory = scopeFactory;
     }
 
     [HttpGet("")]
@@ -169,6 +171,11 @@ public class RoomSearchController : Controller
 
         var resultList = result.ToList();
 
+        var logIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var logUserAgent = Request.Headers.UserAgent.ToString();
+        if (logUserAgent.Length > 500) logUserAgent = logUserAgent[..500];
+        var logIsAdmin   = HttpContext.User.Identity?.IsAuthenticated ?? false;
+
         _ = Task.Run(async () =>
         {
             try
@@ -194,13 +201,11 @@ public class RoomSearchController : Controller
                     CompCloseAfter   = string.IsNullOrWhiteSpace(compCloseAfter)  ? null : TimeOnly.TryParse(compCloseAfter,  out var t4) ? t4 : null,
                     IncludeClosed    = includeClosed,
                     ResultCount      = resultList.Count,
-                    IpAddress        = HttpContext.Connection.RemoteIpAddress?.ToString(),
-                    UserAgent        = Request.Headers.UserAgent.ToString().Length > 500
-                                        ? Request.Headers.UserAgent.ToString()[..500]
-                                        : Request.Headers.UserAgent.ToString(),
-                    IsAdmin          = HttpContext.User.Identity?.IsAuthenticated ?? false,
+                    IpAddress        = logIpAddress,
+                    UserAgent        = logUserAgent,
+                    IsAdmin          = logIsAdmin,
                 };
-                using var scope = HttpContext.RequestServices.CreateScope();
+                using var scope = _scopeFactory.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<KenketsuNoteContext>();
                 db.RoomSearchLogs.Add(log);
                 await db.SaveChangesAsync();
