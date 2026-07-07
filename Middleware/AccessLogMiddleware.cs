@@ -6,6 +6,7 @@ namespace KenketsuNote.Middleware;
 public class AccessLogMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     // 記録対象パスのパターン（正規化後の表示名）
     private static readonly (Regex Pattern, string Label)[] PagePatterns =
@@ -18,7 +19,11 @@ public class AccessLogMiddleware
         (new Regex(@"^/$",                RegexOptions.IgnoreCase), "/"),
     ];
 
-    public AccessLogMiddleware(RequestDelegate next) => _next = next;
+    public AccessLogMiddleware(RequestDelegate next, IServiceScopeFactory scopeFactory)
+    {
+        _next = next;
+        _scopeFactory = scopeFactory;
+    }
 
     public async Task Invoke(HttpContext context)
     {
@@ -41,7 +46,7 @@ public class AccessLogMiddleware
         {
             try
             {
-                using var scope = context.RequestServices.CreateScope();
+                using var scope = _scopeFactory.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<KenketsuNoteContext>();
                 db.AccessLogs.Add(new AccessLog
                 {
