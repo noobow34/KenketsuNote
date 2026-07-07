@@ -57,6 +57,9 @@ public class RoomCheckController : Controller
 
         if (result.Room is not null)
         {
+            // DB更新前に差分フィールドを確定する（更新後は値が一致してしまうため）
+            var changedFields = GetChangedFields(effective, result.Room);
+
             if (form.Fields.Contains("city")         && effective.City        is not null) result.Room.City        = effective.City;
             if (form.Fields.Contains("can_whole")    && effective.CanWhole    is not null) result.Room.CanWhole    = effective.CanWhole;
             if (form.Fields.Contains("can_plasma")   && effective.CanPlasma   is not null) result.Room.CanPlasma   = effective.CanPlasma;
@@ -89,7 +92,7 @@ public class RoomCheckController : Controller
                 }
             }
 
-            await UpdateDismissedDiffsAsync(result.Room.RoomId, effective, approved: form.Fields);
+            await UpdateDismissedDiffsAsync(result.Room.RoomId, effective, approved: form.Fields, changedFields);
         }
 
         result.Resolved = true;
@@ -98,11 +101,13 @@ public class RoomCheckController : Controller
         return View("Approved");
     }
 
-    // 却下：変更を適用せず対応済みにする（全フィールドを却下済み差分として記録）
+    // 却下：変更を適用せず対応済みにする（差分があったフィールドのみ却下済み差分として記録）
     [HttpPost("{id:long}/dismiss")]
     public async Task<IActionResult> Dismiss(long id, [FromQuery] Guid token)
     {
         var result = await _db.RoomCheckResults
+            .Include(r => r.Room)
+            .ThenInclude(r => r!.BusinessHours)
             .FirstOrDefaultAsync(r => r.Id == id && r.ReviewToken == token);
 
         if (result is null) return NotFound("リンクが無効です。");
@@ -112,8 +117,11 @@ public class RoomCheckController : Controller
             gemini = JsonSerializer.Deserialize<RoomInfoCheckJob.GeminiRoomCheckResponse>(result.GeminiResult,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-        if (gemini is not null)
-            await UpdateDismissedDiffsAsync(result.RoomId, gemini, approved: []);
+        if (gemini is not null && result.Room is not null)
+        {
+            var changedFields = GetChangedFields(gemini, result.Room);
+            await UpdateDismissedDiffsAsync(result.RoomId, gemini, approved: [], changedFields);
+        }
 
         result.Resolved = true;
         await _db.SaveChangesAsync();
@@ -121,11 +129,40 @@ public class RoomCheckController : Controller
         return View("Dismissed");
     }
 
-    // 採用フィールドは削除、非採用フィールドは upsert
+    // 実際に差分があるフィールドを求める
+    private static HashSet<string> GetChangedFields(
+        RoomInfoCheckJob.GeminiRoomCheckResponse gemini, KenketsuRoom room)
+    {
+        var changed = new HashSet<string>();
+        if (gemini.City        != null && gemini.City        != room.City)        changed.Add("city");
+        if (gemini.CanWhole    != null && gemini.CanWhole    != room.CanWhole)    changed.Add("can_whole");
+        if (gemini.CanPlasma   != null && gemini.CanPlasma   != room.CanPlasma)   changed.Add("can_plasma");
+        if (gemini.CanPlatelet != null && gemini.CanPlatelet != room.CanPlatelet) changed.Add("can_platelet");
+        if (gemini.ClosedDays  != null && gemini.ClosedDays  != room.ClosedDays)  changed.Add("closed_days");
+
+        foreach (var dayType in new[] { 0, 1 })
+        {
+            var dbH = room.BusinessHours.FirstOrDefault(h => h.DayType == dayType);
+            var gmH = gemini.BusinessHours?.FirstOrDefault(h => h.DayType == dayType);
+            if (dbH == null || gmH == null) continue;
+
+            var differs =
+                $"{dbH.WholeReceptionStart:HH\\:mm}〜{dbH.WholeReceptionEnd:HH\\:mm}" != $"{gmH.WholeReceptionStart}〜{gmH.WholeReceptionEnd}" ||
+                $"{dbH.WholeLunchStart:HH\\:mm}〜{dbH.WholeLunchEnd:HH\\:mm}"         != $"{gmH.WholeLunchStart}〜{gmH.WholeLunchEnd}"           ||
+                $"{dbH.CompReceptionStart:HH\\:mm}〜{dbH.CompReceptionEnd:HH\\:mm}"   != $"{gmH.CompReceptionStart}〜{gmH.CompReceptionEnd}"     ||
+                $"{dbH.CompLunchStart:HH\\:mm}〜{dbH.CompLunchEnd:HH\\:mm}"           != $"{gmH.CompLunchStart}〜{gmH.CompLunchEnd}";
+            if (differs) changed.Add($"business_hours_{dayType}");
+        }
+
+        return changed;
+    }
+
+    // 採用フィールドは削除、非採用かつ実際に差分があるフィールドは upsert
     private async Task UpdateDismissedDiffsAsync(
         int roomId,
         RoomInfoCheckJob.GeminiRoomCheckResponse gemini,
-        List<string> approved)
+        List<string> approved,
+        HashSet<string> changedFields)
     {
         var jsonOpt = new JsonSerializerOptions
         {
@@ -152,6 +189,7 @@ public class RoomCheckController : Controller
         foreach (var (field, geminiValue) in candidates)
         {
             if (geminiValue is null) continue;
+            if (!changedFields.Contains(field)) continue;
 
             if (approved.Contains(field))
             {
