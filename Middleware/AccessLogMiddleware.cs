@@ -13,9 +13,9 @@ public class AccessLogMiddleware
     [
         (new Regex(@"^/u/[^/]+/stamp$",   RegexOptions.IgnoreCase), "/u/{userId}/stamp"),
         (new Regex(@"^/u/[^/]+/tracker$", RegexOptions.IgnoreCase), "/u/{userId}/tracker"),
-        (new Regex(@"^/u/[^/]+/manual$",  RegexOptions.IgnoreCase), "/u/{userId}/manual"),
         (new Regex(@"^/u/[^/]+$",         RegexOptions.IgnoreCase), "/u/{userId}"),
         (new Regex(@"^/rooms$",           RegexOptions.IgnoreCase), "/rooms"),
+        (new Regex(@"^/manual$",          RegexOptions.IgnoreCase), "/manual"),
         (new Regex(@"^/$",                RegexOptions.IgnoreCase), "/"),
     ];
 

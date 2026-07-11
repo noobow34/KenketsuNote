@@ -26,7 +26,7 @@ Controllers/
   UserController.cs       # マイページHub (/u/{id})
   StampController.cs      # 全国スタンプ (/u/{id}/stamp)
   TrackerController.cs    # 計画管理 (/u/{id}/tracker)
-  ManualController.cs     # ヘルプページ (/u/{id}/manual)
+  ManualController.cs     # ヘルプページ (/manual)
   AdminController.cs      # 管理用API
 Data/                     # EF Core エンティティ
 Services/
@@ -42,7 +42,7 @@ sql/                      # DDL・マイグレーションSQL
 | `/u/{userId}` | マイページHub |
 | `/u/{userId}/stamp` | 🗾 全国スタンプ |
 | `/u/{userId}/tracker` | 📅 計画管理 |
-| `/u/{userId}/manual` | 📖 ヘルプ |
+| `/manual` | 📖 ヘルプ |
 | `/s/{shareId}` | 👁️ スタンプ閲覧共有ページ |
 
 ## 🚀 セットアップ

@@ -4,10 +4,9 @@ namespace KenketsuNote.Controllers;
 
 public class ManualController : Controller
 {
-    [Route("u/{userId}/manual")]
-    public IActionResult Index(string userId)
+    [Route("manual")]
+    public IActionResult Index()
     {
-        ViewBag.UserId = userId;
         return View();
     }
 }
