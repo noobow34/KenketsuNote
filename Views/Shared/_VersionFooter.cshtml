@@ -1,0 +1,10 @@
+<div style="text-align:center;padding:10px 0 4px;font-size:0.7rem;color:#bbb;">
+@if (AppVersion.CommitUrl != null)
+{
+    <a href="@AppVersion.CommitUrl" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">v @AppVersion.CommitHash</a>
+}
+else
+{
+    @: v @AppVersion.CommitHash
+}
+</div>

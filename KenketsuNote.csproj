@@ -17,4 +17,27 @@
     <PackageReference Include="Quartz.AspNetCore" Version="3.18.1" />
   </ItemGroup>
 
+  <!-- ビルド時のgitコミットハッシュをアセンブリメタデータに埋め込む（フッター表示用）。
+       -p:CommitHash=xxx を指定すればgit実行をスキップして上書きできる。
+       gitが無い/失敗した環境ではExitCodeを見て"unknown"にフォールバックする
+       （終了コードを確認しないと、シェルのエラーメッセージ自体がハッシュ値として埋め込まれてしまう）。 -->
+  <Target Name="EmbedCommitHash" BeforeTargets="GetAssemblyAttributes">
+    <Exec Command="git rev-parse --short HEAD"
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          ConsoleToMSBuild="true"
+          IgnoreExitCode="true"
+          StandardOutputImportance="low"
+          Condition="'$(CommitHash)' == ''">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_GitCommitHashOutput" />
+      <Output TaskParameter="ExitCode" PropertyName="_GitCommitHashExitCode" />
+    </Exec>
+    <PropertyGroup>
+      <CommitHash Condition="'$(CommitHash)' == '' and '$(_GitCommitHashExitCode)' == '0'">$(_GitCommitHashOutput)</CommitHash>
+      <CommitHash Condition="'$(CommitHash)' == ''">unknown</CommitHash>
+    </PropertyGroup>
+    <ItemGroup>
+      <AssemblyMetadata Include="CommitHash" Value="$(CommitHash)" />
+    </ItemGroup>
+  </Target>
+
 </Project>
