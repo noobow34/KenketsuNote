@@ -27,4 +27,8 @@ public class RoomCheckJobState
     // アクセスログ・検索ログの保持日数（デフォルト 90日）
     [Column("log_retention_days")]
     public int LogRetentionDays { get; set; } = 90;
+
+    // 差分検出に使用するGeminiモデル名
+    [Column("gemini_model")]
+    public string GeminiModel { get; set; } = "gemini-3.5-flash-lite";
 }

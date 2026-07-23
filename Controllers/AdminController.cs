@@ -69,6 +69,7 @@ public class AdminController : Controller
         ViewBag.ScheduledHour    = jobState?.ScheduledHour    ?? 6;
         ViewBag.ScheduledMinute  = jobState?.ScheduledMinute  ?? 30;
         ViewBag.LogRetentionDays = jobState?.LogRetentionDays ?? 90;
+        ViewBag.GeminiModel      = jobState?.GeminiModel      ?? RoomInfoCheckJob.DefaultGeminiModel;
 
         // アクセス統計（直近14日）
         var since = DateTimeOffset.UtcNow.AddHours(9).AddDays(-13).Date;
@@ -122,7 +123,10 @@ public class AdminController : Controller
             if (string.IsNullOrEmpty(geminiApiKey))
                 return Json(new { success = false, message = "GEMINI_API_KEY が設定されていません。" });
 
-            await RoomInfoCheckJob.ProcessRoomAsync(room, _db, geminiApiKey, slackBotToken, slackChannel, baseUrl);
+            var jobState    = await _db.RoomCheckJobStates.FindAsync(1);
+            var geminiModel = string.IsNullOrWhiteSpace(jobState?.GeminiModel) ? RoomInfoCheckJob.DefaultGeminiModel : jobState.GeminiModel;
+
+            await RoomInfoCheckJob.ProcessRoomAsync(room, _db, geminiApiKey, geminiModel, slackBotToken, slackChannel, baseUrl);
             return Json(new { success = true, message = $"「{room.RoomName}」のチェックが完了しました。ログを確認してください。" });
         }
         catch (Exception ex)
@@ -217,6 +221,45 @@ public class AdminController : Controller
         await _db.SaveChangesAsync();
 
         return Json(new { success = true, message = $"ログ保持期間を {days} 日に変更しました。" });
+    }
+
+    [HttpGet("gemini-models")]
+    public async Task<IActionResult> GeminiModels()
+    {
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
+        var apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? "";
+        if (string.IsNullOrEmpty(apiKey))
+            return Json(new { success = false, message = "GEMINI_API_KEY が設定されていません。" });
+
+        try
+        {
+            var models = await RoomInfoCheckJob.ListAvailableModelsAsync(apiKey);
+            return Json(new { success = true, models });
+        }
+        catch (Exception ex)
+        {
+            return Json(new { success = false, message = $"エラー: {ex.Message}" });
+        }
+    }
+
+    [HttpPost("update-gemini-model")]
+    public async Task<IActionResult> UpdateGeminiModel([FromForm] string model)
+    {
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
+        model = (model ?? "").Trim();
+        if (string.IsNullOrEmpty(model))
+            return Json(new { success = false, message = "モデル名を入力してください。" });
+
+        var state = await _db.RoomCheckJobStates.FindAsync(1);
+        if (state is null)
+        {
+            state = new RoomCheckJobState { Id = 1, NextOffset = 0 };
+            _db.RoomCheckJobStates.Add(state);
+        }
+        state.GeminiModel = model;
+        await _db.SaveChangesAsync();
+
+        return Json(new { success = true, message = $"Geminiモデルを「{model}」に変更しました。" });
     }
 
     [HttpPost("reload-master")]

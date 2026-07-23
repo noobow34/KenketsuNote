@@ -198,7 +198,8 @@ CREATE TABLE IF NOT EXISTS kenketsu.room_check_job_state (
     last_run_at        TIMESTAMPTZ,
     scheduled_hour     INT         NOT NULL DEFAULT 6,
     scheduled_minute   INT         NOT NULL DEFAULT 30,
-    log_retention_days INT         NOT NULL DEFAULT 90
+    log_retention_days INT         NOT NULL DEFAULT 90,
+    gemini_model       VARCHAR(100) NOT NULL DEFAULT 'gemini-3.5-flash-lite'
 );
 
 INSERT INTO kenketsu.room_check_job_state (id, next_offset)

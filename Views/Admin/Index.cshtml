@@ -215,6 +215,17 @@ a{color:#1565c0;}
         </div>
         <div class="section-body">
             <div style="border-bottom:1px solid #f0f0f0;padding-bottom:12px;margin-bottom:12px;">
+                <div class="btn-label" style="font-size:0.88rem;margin-bottom:6px;">使用モデル</div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <input type="text" id="geminiModel" list="geminiModelList" value="@ViewBag.GeminiModel"
+                           style="width:280px;padding:7px;border:1.5px solid #ddd;border-radius:6px;font-size:0.95rem;">
+                    <datalist id="geminiModelList"></datalist>
+                    <button class="run-single-btn" onclick="updateGeminiModel(this)">変更</button>
+                </div>
+                <div class="btn-desc" style="margin-top:4px;">一覧から選択、または直接入力できます（一覧取得失敗時も手入力で変更可能）</div>
+                <div class="result-box" id="result-update-gemini-model"></div>
+            </div>
+            <div style="border-bottom:1px solid #f0f0f0;padding-bottom:12px;margin-bottom:12px;">
                 <div class="btn-label" style="font-size:0.88rem;margin-bottom:6px;">自動実行時刻（JST）</div>
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                     <input type="number" id="schedHour"   min="0" max="23" value="@ViewBag.ScheduledHour"
@@ -425,6 +436,54 @@ async function updateSchedule(btn) {
     try {
         const body = new URLSearchParams({ hour, minute });
         const res  = await fetch('/admin/update-schedule', { method: 'POST', body });
+        const data = await res.json();
+        resultEl.className = 'result-box ' + (data.success ? 'ok' : 'err');
+        resultEl.textContent = data.message;
+    } catch (e) {
+        resultEl.className = 'result-box err';
+        resultEl.textContent = '通信エラー: ' + e.message;
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// フォーカス時に一旦値を空にして全候補を表示させ、
+// 未選択のまま離れた場合は元の値に戻す（datalistは入力値に部分一致する候補しか出さないため）
+const geminiModelInput = document.getElementById('geminiModel');
+geminiModelInput.addEventListener('focus', () => {
+    geminiModelInput.dataset.prevValue = geminiModelInput.value;
+    geminiModelInput.value = '';
+});
+geminiModelInput.addEventListener('blur', () => {
+    if (geminiModelInput.value === '' && geminiModelInput.dataset.prevValue) {
+        geminiModelInput.value = geminiModelInput.dataset.prevValue;
+    }
+});
+
+async function loadGeminiModels() {
+    const datalist = document.getElementById('geminiModelList');
+    try {
+        const res  = await fetch('/admin/gemini-models');
+        const data = await res.json();
+        if (!data.success || !data.models) return;
+
+        datalist.innerHTML = data.models.map(m => `<option value="${m}"></option>`).join('');
+    } catch (e) {
+        // 一覧取得に失敗しても入力欄自体は手入力できるため何もしない
+    }
+}
+loadGeminiModels();
+
+async function updateGeminiModel(btn) {
+    const model = document.getElementById('geminiModel').value.trim();
+    const resultEl = document.getElementById('result-update-gemini-model');
+    resultEl.className = 'result-box';
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<span class="spinner"></span>変更中…';
+    btn.disabled = true;
+    try {
+        const body = new URLSearchParams({ model });
+        const res  = await fetch('/admin/update-gemini-model', { method: 'POST', body });
         const data = await res.json();
         resultEl.className = 'result-box ' + (data.success ? 'ok' : 'err');
         resultEl.textContent = data.message;

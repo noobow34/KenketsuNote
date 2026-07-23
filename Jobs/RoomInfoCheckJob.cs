@@ -16,8 +16,11 @@ public class RoomInfoCheckJob : IJob
     private const int RateLimitRetryDelay = 65000;
     private const int MaxRetry = 3;
 
-    private static readonly string GeminiApiUrl =
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent";
+    private const string GeminiApiUrlTemplate =
+        "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent";
+    private const string GeminiModelsListUrl =
+        "https://generativelanguage.googleapis.com/v1beta/models";
+    public const string DefaultGeminiModel = "gemini-3.5-flash-lite";
     private static readonly string SlackApiUrl = "https://slack.com/api/chat.postMessage";
 
     public async Task Execute(IJobExecutionContext context)
@@ -72,11 +75,13 @@ public class RoomInfoCheckJob : IJob
 
         Console.WriteLine($"[RoomInfoCheckJob] offset={state.NextOffset} 対象={rooms.Count}件");
 
+        var geminiModel = string.IsNullOrWhiteSpace(state.GeminiModel) ? DefaultGeminiModel : state.GeminiModel;
+
         foreach (var room in rooms.OrderBy(r => r.RoomId))
         {
             try
             {
-                await ProcessRoomAsync(room, db, geminiApiKey, slackBotToken, slackChannel, baseUrl);
+                await ProcessRoomAsync(room, db, geminiApiKey, geminiModel, slackBotToken, slackChannel, baseUrl);
             }
             catch (Exception ex)
             {
@@ -97,7 +102,7 @@ public class RoomInfoCheckJob : IJob
     // ── 1ルーム分の処理（バッチ・単体実行共通） ──────────
     public static async Task ProcessRoomAsync(
         KenketsuRoom room, KenketsuNoteContext db,
-        string geminiApiKey, string slackBotToken, string slackChannel, string baseUrl)
+        string geminiApiKey, string geminiModel, string slackBotToken, string slackChannel, string baseUrl)
     {
         Console.WriteLine($"[RoomInfoCheckJob] チェック開始: {room.RoomName} ({room.RoomUrl})");
 
@@ -106,7 +111,7 @@ public class RoomInfoCheckJob : IJob
             .ToListAsync();
 
         var job = new RoomInfoCheckJob();
-        var geminiResult = await job.CallGeminiWithRetryAsync(geminiApiKey, room, room.RoomUrl!, dismissedDiffs);
+        var geminiResult = await job.CallGeminiWithRetryAsync(geminiApiKey, geminiModel, room, room.RoomUrl!, dismissedDiffs);
         if (geminiResult is null) return;
 
         var result = new RoomCheckResult
@@ -135,15 +140,55 @@ public class RoomInfoCheckJob : IJob
         }
     }
 
+    // ── 利用可能なGeminiモデル一覧取得 ───────────────────
+    public static async Task<List<string>> ListAvailableModelsAsync(string apiKey)
+    {
+        var modelNames = new List<string>();
+        string? pageToken = null;
+
+        using var http = new HttpClient();
+        do
+        {
+            var url = $"{GeminiModelsListUrl}?key={apiKey}&pageSize=100"
+                + (pageToken is null ? "" : $"&pageToken={Uri.EscapeDataString(pageToken)}");
+            var response = await http.GetAsync(url);
+            var responseText = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+                throw new Exception($"Gemini APIエラー ({(int)response.StatusCode}): {responseText}");
+
+            var doc = JsonDocument.Parse(responseText);
+            if (doc.RootElement.TryGetProperty("models", out var modelsEl))
+            {
+                foreach (var m in modelsEl.EnumerateArray())
+                {
+                    if (!m.TryGetProperty("supportedGenerationMethods", out var methodsEl)) continue;
+                    var supportsGenerateContent = methodsEl.EnumerateArray()
+                        .Any(x => x.GetString() == "generateContent");
+                    if (!supportsGenerateContent) continue;
+
+                    var name = m.GetProperty("name").GetString() ?? "";
+                    if (name.StartsWith("models/")) name = name["models/".Length..];
+                    if (name.Length > 0) modelNames.Add(name);
+                }
+            }
+
+            pageToken = doc.RootElement.TryGetProperty("nextPageToken", out var tokenEl)
+                ? tokenEl.GetString() : null;
+        } while (!string.IsNullOrEmpty(pageToken));
+
+        return modelNames.Distinct().OrderBy(n => n).ToList();
+    }
+
     // ── Gemini呼び出し（リトライあり） ───────────────────
     private async Task<GeminiRoomCheckResponse?> CallGeminiWithRetryAsync(
-        string apiKey, KenketsuRoom room, string url, List<RoomDismissedDiff> dismissedDiffs)
+        string apiKey, string model, KenketsuRoom room, string url, List<RoomDismissedDiff> dismissedDiffs)
     {
         for (int attempt = 0; attempt < MaxRetry; attempt++)
         {
             try
             {
-                return await CallGeminiAsync(apiKey, room, url, dismissedDiffs);
+                return await CallGeminiAsync(apiKey, model, room, url, dismissedDiffs);
             }
             catch (GeminiRateLimitException)
             {
@@ -160,7 +205,7 @@ public class RoomInfoCheckJob : IJob
     }
 
     private async Task<GeminiRoomCheckResponse?> CallGeminiAsync(
-        string apiKey, KenketsuRoom room, string url, List<RoomDismissedDiff> dismissedDiffs)
+        string apiKey, string model, KenketsuRoom room, string url, List<RoomDismissedDiff> dismissedDiffs)
     {
         var dbHours = room.BusinessHours
             .OrderBy(h => h.DayType)
@@ -264,9 +309,10 @@ public class RoomInfoCheckJob : IJob
             }
         };
 
+        var geminiApiUrl = string.Format(GeminiApiUrlTemplate, model);
         using var http = new HttpClient();
         var response = await http.PostAsync(
-            $"{GeminiApiUrl}?key={apiKey}",
+            $"{geminiApiUrl}?key={apiKey}",
             new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json"));
 
         var responseText = await response.Content.ReadAsStringAsync();
