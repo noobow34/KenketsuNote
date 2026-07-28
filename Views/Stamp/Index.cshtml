@@ -35,9 +35,6 @@
             color: #333;
             user-select: none;
         }
-        h1 { text-align: center; margin-bottom: 40px; color: #b71c1c; }
-        .back-link { font-size: 0.85em; color: #d32f2f; text-decoration: none; display: inline-block; margin-bottom: 8px; }
-        .back-link:hover { text-decoration: underline; }
         .status-bar {
             text-align: center;
             margin-bottom: 30px;
@@ -129,7 +126,6 @@
             display: flex; justify-content: center; align-items: center;
             pointer-events: none; z-index: 10;
         }
-        .animate-stamp .stamp-inner { animation: stamp-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .stamp-inner {
             width: 90px; height: 90px;
             border: 3px double #d32f2f; border-radius: 50%;
@@ -140,10 +136,6 @@
         .stamp-title { font-size: 28px; font-weight: bold; line-height: 1; margin-top: 5px; }
         .stamp-date-line { width: 70%; height: 1px; background-color: #d32f2f; margin: 4px 0; }
         .stamp-date { font-size: 13px; font-weight: bold; font-family: monospace; }
-        @@keyframes stamp-pop {
-            0% { transform: scale(0); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
-        }
         #dateModal {
             display: none; position: fixed; inset: 0;
             background-color: rgba(0,0,0,0.4);
@@ -188,7 +180,6 @@
         }
         .bookmark-actions button:hover { background: #ffecec; }
         .bookmark-actions button:active { transform: scale(0.97); }
-        .bookmark-message { display: none; margin-top: 6px; font-size: 0.8em; color: #2e7d32; }
         .bookmark-actions button:disabled { color: #aaa; border-color: #ddd; background: #f5f5f5; cursor: not-allowed; opacity: 0.6; }
         .share-view .room-card { cursor: default; }
         .share-view .room-card:active { transform: none; }

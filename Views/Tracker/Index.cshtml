@@ -29,9 +29,6 @@
     <style>
         body { background-color: #fff5f5; font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif; margin: 0; }
         .page-wrap { max-width: 520px; margin: 0 auto; padding: 16px; }
-        .page-title { font-size: 1.4rem; font-weight: bold; color: #c0392b; }
-        .back-link { color: #c0392b; text-decoration: none; font-size: 0.9rem; }
-        .back-link:hover { text-decoration: underline; }
         .summary-card { background: white; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 8px rgba(0,0,0,0.08); margin-bottom: 14px; }
         .sim-bar { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid #f0f0f0; }
         .sim-bar-row { display:flex; align-items:center; gap:8px; }
@@ -153,7 +150,6 @@
         .form-group-sub { margin-bottom: 12px; padding-left: 12px; border-left: 3px solid #e8d5f5; }
         .btn-red    { background: #e74c3c; color: white; border: none; border-radius: 20px; padding: 8px 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
         .btn-red:hover { background: #c0392b; }
-        .btn-blue   { background: #3498db; color: white; border: none; border-radius: 20px; padding: 8px 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
         .btn-green  { background: #27ae60; color: white; border: none; border-radius: 20px; padding: 8px 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
         .btn-green:hover { background: #219a52; }
         .btn-orange { background: #e67e22; color: white; border: none; border-radius: 20px; padding: 8px 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
@@ -211,9 +207,6 @@
         .room-list-empty { padding:16px; text-align:center; color:#aaa; font-size:0.85rem; }
         .show-closed-toggle { display:flex; align-items:center; gap:6px; font-size:0.78rem; color:#999; margin-bottom:8px; cursor:pointer; user-select:none; }
         .show-closed-toggle input[type=checkbox] { cursor:pointer; }
-        /* ── スタンプ反映確認 ── */
-        .stamp-confirm-room { font-size:1rem; font-weight:700; color:#333; text-align:center; margin:12px 0 4px; }
-        .stamp-confirm-note { font-size:0.8rem; color:#888; text-align:center; margin-bottom:4px; }
         /* ── 性別バナー ── */
         .gender-banner { background: #fff8e1; border: 1.5px solid #ffc107; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.85rem; color: #7d5a00; }
         .gender-banner-text { flex: 1; }
@@ -224,7 +217,6 @@
         .gender-choice-btn { flex: 1; padding: 16px 8px; border: 2px solid #ddd; border-radius: 12px; background: white; cursor: pointer; font-size: 1rem; font-weight: 600; transition: all 0.15s; }
         .gender-choice-btn:hover { border-color: #e74c3c; background: #fff5f5; }
         .gender-choice-btn.selected { border-color: #e74c3c; background: #fff0f0; color: #c0392b; }
-        .gender-limit-note { font-size: 0.78rem; color: #888; text-align: center; margin-bottom: 4px; }
         /* ── ナビゲーション ── */
         .nav-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #ffebeb; }
         .nav-brand { display: flex; align-items: center; gap: 10px; }
@@ -806,7 +798,6 @@ function showMsg(text, icon) { document.getElementById('msgText').textContent = 
 let _roomPickerTarget     = null;  // 'plan' | 'convert' | 'edit'
 let _roomPickerPref       = null;
 let _roomPickerShowClosed = false;
-let _stampPendingRecordId = null;
 
 function openRoomPicker(target) {
     _roomPickerTarget     = target;
@@ -916,21 +907,6 @@ function updateStampToggle(target) {
         row2.style.display = show2 ? '' : 'none';
         if (!show2) document.getElementById('convertStampCheck').checked = false;
     }
-}
-
-// ── スタンプ反映 ─────────────────────────────────────────────
-function showStampConfirm(recordId, roomName) {
-    _stampPendingRecordId = recordId;
-    document.getElementById('stampConfirmRoom').textContent = roomName;
-    openModal('modalStampConfirm');
-}
-function doApplyStamp() {
-    if (!_stampPendingRecordId) return;
-    postForm('/Tracker/ApplyStamp', { userId: USER_ID, recordId: _stampPendingRecordId }, function(d) {
-        closeModal('modalStampConfirm');
-        if (!d.success) { showMsg(d.message, '❌'); return; }
-        showMsg(d.updated ? 'スタンプの訪問日を更新しました！' : '全国スタンプに反映しました！', '🗾');
-    });
 }
 
 let _selectedGender = null;
