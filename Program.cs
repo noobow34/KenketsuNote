@@ -21,7 +21,7 @@ foreach (var (key, val) in new[]
     ("SLACK_ROOM_CHECK_CHANNEL",       Environment.GetEnvironmentVariable("SLACK_ROOM_CHECK_CHANNEL")       ?? ""),
     ("KENKETSUNOTE_BASE_URL",          Environment.GetEnvironmentVariable("KENKETSUNOTE_BASE_URL")          ?? ""),
 })
-    Console.WriteLine($"{key}:{val.Length}");
+    Console.WriteLine($"{key}:{(string.IsNullOrEmpty(val) ? "NotSet" : "Loaded")}");
 
 var builder = WebApplication.CreateBuilder(args);
 
