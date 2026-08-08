@@ -64,9 +64,14 @@ public class TrackerController : Controller
         });
         var jsonOpt = new System.Text.Json.JsonSerializerOptions
             { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
-        ViewBag.RoomsJson  = System.Text.Json.JsonSerializer.Serialize(rooms,  jsonOpt);
-        ViewBag.PrefsJson  = System.Text.Json.JsonSerializer.Serialize(prefs,  jsonOpt);
-        ViewBag.BlocksJson = System.Text.Json.JsonSerializer.Serialize(blocks, jsonOpt);
+        var favoriteRoomIds = _db.FavoriteRooms.AsNoTracking()
+            .Where(f => f.UserId == userId)
+            .Select(f => f.RoomId)
+            .ToList();
+        ViewBag.RoomsJson       = System.Text.Json.JsonSerializer.Serialize(rooms,  jsonOpt);
+        ViewBag.PrefsJson       = System.Text.Json.JsonSerializer.Serialize(prefs,  jsonOpt);
+        ViewBag.BlocksJson      = System.Text.Json.JsonSerializer.Serialize(blocks, jsonOpt);
+        ViewBag.FavoriteRoomsJson = System.Text.Json.JsonSerializer.Serialize(favoriteRoomIds);
         return View();
     }
 
@@ -435,6 +440,30 @@ public class TrackerController : Controller
         });
         await _db.SaveChangesAsync();
         return Json(new { success = true, updated = false });
+    }
+
+    // ─────────────────────────────────────────────
+    // お気に入りルーム
+    // ─────────────────────────────────────────────
+    [HttpPost]
+    public async Task<IActionResult> ToggleFavoriteRoom(string userId, int roomId)
+    {
+        if (!_db.Users.Any(u => u.UserId == userId))
+            return Json(new { success = false, message = "ユーザーが見つかりません。" });
+        if (!MasterData.Rooms.Any(r => r.RoomId == roomId))
+            return Json(new { success = false, message = "献血ルームが見つかりません。" });
+
+        var existing = _db.FavoriteRooms.FirstOrDefault(f => f.UserId == userId && f.RoomId == roomId);
+        if (existing != null)
+        {
+            _db.FavoriteRooms.Remove(existing);
+            await _db.SaveChangesAsync();
+            return Json(new { success = true, isFavorite = false });
+        }
+
+        _db.FavoriteRooms.Add(new FavoriteRoom { UserId = userId, RoomId = roomId });
+        await _db.SaveChangesAsync();
+        return Json(new { success = true, isFavorite = true });
     }
 
     [HttpPost]

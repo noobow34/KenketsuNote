@@ -212,6 +212,10 @@
         .room-list-item:hover { background:#fff5f5; }
         .room-list-item.none-item { color:#aaa; font-style:italic; }
         .room-list-item .room-pref-tag { font-size:0.72rem; color:#aaa; flex-shrink:0; }
+        .fav-star { flex-shrink:0; width:30px; text-align:center; font-size:1.05rem; line-height:1; color:#ddd; cursor:pointer; user-select:none; }
+        .fav-star:hover { color:#f5b301; }
+        .fav-star.on { color:#f5b301; }
+        .pref-filter-btn.fav-filter-btn.active { border-color:#f5b301; background:#fffaf0; color:#b8860b; }
         .room-list-item .closed-tag { font-size:0.7rem; color:#bbb; flex-shrink:0; }
         .room-list-empty { padding:16px; text-align:center; color:#aaa; font-size:0.85rem; }
         .show-closed-toggle { display:flex; align-items:center; gap:6px; font-size:0.78rem; color:#999; margin-bottom:8px; cursor:pointer; user-select:none; }
@@ -564,6 +568,7 @@ const CURRENT_GENDER   = @Html.Raw(ViewBag.CurrentGender != null ? $"'{ViewBag.C
 const ROOMS           = @Html.Raw(ViewBag.RoomsJson  ?? "[]");
 const PREFS           = @Html.Raw(ViewBag.PrefsJson  ?? "[]");
 const BLOCKS          = @Html.Raw(ViewBag.BlocksJson ?? "[]");
+const FAVORITE_ROOMS  = new Set(@Html.Raw(ViewBag.FavoriteRoomsJson ?? "[]"));
 const PREF_MAP        = Object.fromEntries(PREFS.map(p => [p.prefId, p.prefName]));
 const ROOM_MAP        = Object.fromEntries(ROOMS.map(r => [r.roomId, r.roomName]));
 const TYPE_LABEL = { whole_200:'200', whole_400:'400', plasma:'血漿', platelet:'血小' };
@@ -818,11 +823,13 @@ function showMsg(text, icon) { document.getElementById('msgText').textContent = 
 let _roomPickerTarget     = null;  // 'plan' | 'convert' | 'edit'
 let _roomPickerPref       = null;
 let _roomPickerShowClosed = false;
+let _roomPickerFavOnly    = false;
 
 function openRoomPicker(target) {
     _roomPickerTarget     = target;
     _roomPickerPref       = null;
     _roomPickerShowClosed = false;
+    _roomPickerFavOnly    = false;
     document.getElementById('roomPickerSearch').value = '';
     document.getElementById('showClosedCheck').checked = false;
     buildPrefFilter();
@@ -837,6 +844,11 @@ function toggleShowClosed() {
 function buildPrefFilter() {
     var el = document.getElementById('prefFilter');
     el.innerHTML = '';
+    var favBtn = document.createElement('button');
+    favBtn.className = 'pref-filter-btn fav-filter-btn';
+    favBtn.textContent = '★ お気に入り';
+    favBtn.onclick = () => setFavFilter(favBtn);
+    el.appendChild(favBtn);
     var allBtn = document.createElement('button');
     allBtn.className = 'pref-filter-btn active';
     allBtn.textContent = 'すべて';
@@ -854,7 +866,16 @@ function buildPrefFilter() {
     });
 }
 function setPrefFilter(prefId, btn) {
-    _roomPickerPref = prefId;
+    _roomPickerPref    = prefId;
+    _roomPickerFavOnly = false;
+    activateFilterBtn(btn);
+}
+function setFavFilter(btn) {
+    _roomPickerPref    = null;
+    _roomPickerFavOnly = true;
+    activateFilterBtn(btn);
+}
+function activateFilterBtn(btn) {
     document.querySelectorAll('.pref-filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     filterRooms();
@@ -864,6 +885,7 @@ function filterRooms() {
     var list = document.getElementById('roomPickerList');
     var filtered = ROOMS.filter(function(r) {
         if (!_roomPickerShowClosed && r.isClosed) return false;
+        if (_roomPickerFavOnly && !FAVORITE_ROOMS.has(r.roomId)) return false;
         if (_roomPickerPref && r.prefId !== _roomPickerPref) return false;
         if (q && r.roomName.toLowerCase().indexOf(q) === -1) return false;
         return true;
@@ -878,7 +900,9 @@ function filterRooms() {
     if (filtered.length === 0) {
         var empty = document.createElement('div');
         empty.className = 'room-list-empty';
-        empty.textContent = '該当するルームがありません';
+        empty.textContent = _roomPickerFavOnly
+            ? 'お気に入りのルームがありません。★をタップして追加できます。'
+            : '該当するルームがありません';
         list.appendChild(empty);
         return;
     }
@@ -899,8 +923,25 @@ function filterRooms() {
             cl.textContent = '閉鎖';
             item.appendChild(cl);
         }
+        var star = document.createElement('span');
+        var isFav = FAVORITE_ROOMS.has(r.roomId);
+        star.className   = 'fav-star' + (isFav ? ' on' : '');
+        star.textContent = isFav ? '★' : '☆';
+        star.title       = 'お気に入り';
+        star.onclick     = function(e) { e.stopPropagation(); toggleFavoriteRoom(r.roomId, star); };
+        item.appendChild(star);
         item.onclick = () => selectRoom(r.roomId, r.roomName);
         list.appendChild(item);
+    });
+}
+function toggleFavoriteRoom(roomId, star) {
+    postForm('/Tracker/ToggleFavoriteRoom', { userId: USER_ID, roomId: roomId }, function(d) {
+        if (!d.success) { showMsg(d.message, '❌'); return; }
+        if (d.isFavorite) FAVORITE_ROOMS.add(roomId); else FAVORITE_ROOMS.delete(roomId);
+        // お気に入りタブでは対象行が消えるので描画し直す。それ以外は星だけ差し替えてスクロール位置を保つ
+        if (_roomPickerFavOnly) { filterRooms(); return; }
+        star.classList.toggle('on', d.isFavorite);
+        star.textContent = d.isFavorite ? '★' : '☆';
     });
 }
 function selectRoom(id, name) {

@@ -18,6 +18,7 @@ public partial class KenketsuNoteContext : DbContext
     public virtual DbSet<ShareMapping> ShareMappings { get; set; }
     public virtual DbSet<CenterBlockOrder> CenterBlockOrders { get; set; }
     public virtual DbSet<PrefOrder> PrefOrders { get; set; }
+    public virtual DbSet<FavoriteRoom> FavoriteRooms { get; set; }
 
     // ── アクセスログ ──────────────────────────────────────
     public virtual DbSet<AccessLog> AccessLogs { get; set; }

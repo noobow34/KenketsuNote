@@ -90,6 +90,17 @@ CREATE TABLE IF NOT EXISTS kenketsu.center_block_order (
     display_order   INT         NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS kenketsu.favorite_room (
+    id         SERIAL PRIMARY KEY,
+    user_id    VARCHAR(10) NOT NULL REFERENCES kenketsu.users(user_id),
+    room_id    INT         NOT NULL REFERENCES kenketsu.kenketsu_room(room_id) ON DELETE CASCADE,
+    created_at TIMESTAMP   NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, room_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_favorite_room_user_id
+    ON kenketsu.favorite_room (user_id);
+
 CREATE TABLE IF NOT EXISTS kenketsu.pref_order (
     order_id      SERIAL PRIMARY KEY,
     pref_id       INT         NOT NULL REFERENCES kenketsu.pref(pref_id),
