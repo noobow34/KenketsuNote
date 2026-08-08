@@ -829,7 +829,8 @@ function openRoomPicker(target) {
     _roomPickerTarget     = target;
     _roomPickerPref       = null;
     _roomPickerShowClosed = false;
-    _roomPickerFavOnly    = false;
+    // お気に入りがあれば最初からお気に入りタブで開く
+    _roomPickerFavOnly    = FAVORITE_ROOMS.size > 0;
     document.getElementById('roomPickerSearch').value = '';
     document.getElementById('showClosedCheck').checked = false;
     buildPrefFilter();
@@ -845,12 +846,12 @@ function buildPrefFilter() {
     var el = document.getElementById('prefFilter');
     el.innerHTML = '';
     var favBtn = document.createElement('button');
-    favBtn.className = 'pref-filter-btn fav-filter-btn';
+    favBtn.className = 'pref-filter-btn fav-filter-btn' + (_roomPickerFavOnly ? ' active' : '');
     favBtn.textContent = '★ お気に入り';
     favBtn.onclick = () => setFavFilter(favBtn);
     el.appendChild(favBtn);
     var allBtn = document.createElement('button');
-    allBtn.className = 'pref-filter-btn active';
+    allBtn.className = 'pref-filter-btn' + (_roomPickerFavOnly ? '' : ' active');
     allBtn.textContent = 'すべて';
     allBtn.onclick = () => setPrefFilter(null, allBtn);
     el.appendChild(allBtn);
@@ -901,7 +902,7 @@ function filterRooms() {
         var empty = document.createElement('div');
         empty.className = 'room-list-empty';
         empty.textContent = _roomPickerFavOnly
-            ? 'お気に入りのルームがありません。★をタップして追加できます。'
+            ? 'お気に入りのルームがありません。「すべて」から☆をタップして追加できます。'
             : '該当するルームがありません';
         list.appendChild(empty);
         return;
