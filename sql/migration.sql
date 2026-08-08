@@ -109,6 +109,9 @@ CREATE TABLE IF NOT EXISTS kenketsu.kenketsu_record (
     record_type    VARCHAR(10) NOT NULL,
     volume_ml      INT,
     component_count INT,
+    arm_side          VARCHAR(5),   -- right / left（実績のみ）
+    apheresis_machine VARCHAR(10),  -- trima / ccs（成分の実績のみ）
+    platelet_units    INT,          -- 10 / 20（血小板の実績のみ）
     room_id        INT REFERENCES kenketsu.kenketsu_room(room_id) ON DELETE SET NULL,
     notes          VARCHAR(500),
     created_at     TIMESTAMP   NOT NULL DEFAULT NOW(),

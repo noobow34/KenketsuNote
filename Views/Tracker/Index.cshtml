@@ -167,8 +167,17 @@
         .detail-key { color: #888; width: 72px; flex-shrink: 0; }
         .detail-val { color: #333; font-weight: 600; }
         .detail-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-        select.form-ctrl, input.form-ctrl { width: 100%; padding: 8px 10px; border: 1.5px solid #e0e0e0; border-radius: 8px; font-size: 0.88rem; background: white; color: #333; box-sizing: border-box; }
-        select.form-ctrl:focus, input.form-ctrl:focus { outline: none; border-color: #e74c3c; }
+        input.form-ctrl { width: 100%; padding: 8px 10px; border: 1.5px solid #e0e0e0; border-radius: 8px; font-size: 0.88rem; background: white; color: #333; box-sizing: border-box; }
+        input.form-ctrl:focus { outline: none; border-color: #e74c3c; }
+        /* ── 2択セグメント（採血した腕・使用機器・採血単位数） ── */
+        .choice-group { display: flex; gap: 8px; }
+        .choice-group.choice-grid { display: grid; grid-template-columns: 1fr 1fr; }
+        .choice-btn { flex: 1; min-width: 0; padding: 9px 4px; border: 1.5px solid #e0e0e0; border-radius: 8px; background: white; font-size: 0.85rem; color: #666; cursor: pointer; transition: border-color 0.12s, background 0.12s; }
+        .choice-btn:hover { border-color: #e74c3c; background: #fff8f8; }
+        .choice-btn.selected { border-color: #e74c3c; background: #fff0f0; color: #c0392b; font-weight: 700; }
+        .choice-clear { float: right; color: #bbb; font-size: 0.72rem; font-weight: 400; cursor: pointer; display: none; }
+        .choice-clear:hover { color: #e74c3c; }
+        .choice-clear.show { display: inline; }
         .loading-spinner { display: flex; justify-content: center; padding: 24px 0; }
         .spinner-ring { width: 32px; height: 32px; border: 3px solid #f0e0e0; border-top-color: #e74c3c; border-radius: 50%; animation: spin 0.7s linear infinite; }
         @@keyframes spin { to { transform: rotate(360deg); } }
@@ -383,7 +392,10 @@
             <button id="addTypeTabActual" onclick="setAddType('actual')" style="flex:1;padding:7px 0;border:none;background:white;color:#888;font-size:0.9rem;cursor:pointer;">✅ 実績</button>
         </div>
         <div class="form-group-sm"><label class="form-label-sm">日付</label><input type="text" id="planDateDisp" class="form-ctrl" readonly><input type="hidden" id="planDateRaw"></div>
-        <div class="form-group-sm"><label class="form-label-sm">種別</label><select id="planType" class="form-ctrl"><option value="plasma">血漿成分</option><option value="platelet">血小板成分</option><option value="whole_400">全血 400ml</option><option value="whole_200">全血 200ml</option></select></div>
+        <div class="form-group-sm"><label class="form-label-sm">種別</label><div class="choice-group choice-grid" id="planTypeGroup"><button type="button" class="choice-btn" data-val="plasma" onclick="selectType('plan','plasma')">血漿成分</button><button type="button" class="choice-btn" data-val="platelet" onclick="selectType('plan','platelet')">血小板成分</button><button type="button" class="choice-btn" data-val="whole_400" onclick="selectType('plan','whole_400')">全血 400ml</button><button type="button" class="choice-btn" data-val="whole_200" onclick="selectType('plan','whole_200')">全血 200ml</button></div><input type="hidden" id="planType"></div>
+        <div class="form-group-sm" id="planArmRow" style="display:none;"><label class="form-label-sm">採血した腕（任意）<span class="choice-clear" id="planArmClear" onclick="clearChoice('planArm')">✕ 解除</span></label><div class="choice-group" id="planArmGroup"><button type="button" class="choice-btn" data-val="right" onclick="selectChoice('planArm','right')">右腕</button><button type="button" class="choice-btn" data-val="left" onclick="selectChoice('planArm','left')">左腕</button></div><input type="hidden" id="planArm"></div>
+        <div class="form-group-sm" id="planMachineRow" style="display:none;"><label class="form-label-sm">使用機器（任意）<span class="choice-clear" id="planMachineClear" onclick="clearChoice('planMachine')">✕ 解除</span></label><div class="choice-group" id="planMachineGroup"><button type="button" class="choice-btn" data-val="trima" onclick="selectChoice('planMachine','trima')">トリマアクセル</button><button type="button" class="choice-btn" data-val="ccs" onclick="selectChoice('planMachine','ccs')">CCS</button></div><input type="hidden" id="planMachine"></div>
+        <div class="form-group-sm" id="planUnitsRow" style="display:none;"><label class="form-label-sm">採血単位数（任意）<span class="choice-clear" id="planUnitsClear" onclick="clearChoice('planUnits')">✕ 解除</span></label><div class="choice-group" id="planUnitsGroup"><button type="button" class="choice-btn" data-val="10" onclick="selectChoice('planUnits','10')">10単位</button><button type="button" class="choice-btn" data-val="20" onclick="selectChoice('planUnits','20')">20単位</button></div><input type="hidden" id="planUnits"></div>
         <div class="form-group-sm"><label class="form-label-sm">献血ルーム（任意）</label><button type="button" class="room-select-btn" onclick="openRoomPicker('plan')"><span class="room-name" id="planRoomName">選択なし</span><span class="room-clear" onclick="clearRoom('plan');event.stopPropagation()">✕</span></button><input type="hidden" id="planRoomId"></div>
         <div class="form-group-sm"><label class="form-label-sm">メモ（任意）</label><input type="text" id="planNotes" class="form-ctrl" maxlength="200" placeholder="お気づきの点など"></div>
         <div class="form-group-sm stamp-toggle-row" id="planStampRow" style="display:none;">
@@ -407,7 +419,10 @@
         <button class="modal-close" onclick="closeModal('modalConvert')">×</button>
         <div class="modal-title"><i class="fa-solid fa-check-circle" style="margin-right:8px; color:#27ae60;"></i>実績に変換</div>
         <input type="hidden" id="convertId">
-        <div class="form-group-sm"><label class="form-label-sm">種別（変更可）</label><select id="convertType" class="form-ctrl"><option value="plasma">血漿成分</option><option value="platelet">血小板成分</option><option value="whole_400">全血 400ml</option><option value="whole_200">全血 200ml</option></select></div>
+        <div class="form-group-sm"><label class="form-label-sm">種別（変更可）</label><div class="choice-group choice-grid" id="convertTypeGroup"><button type="button" class="choice-btn" data-val="plasma" onclick="selectType('convert','plasma')">血漿成分</button><button type="button" class="choice-btn" data-val="platelet" onclick="selectType('convert','platelet')">血小板成分</button><button type="button" class="choice-btn" data-val="whole_400" onclick="selectType('convert','whole_400')">全血 400ml</button><button type="button" class="choice-btn" data-val="whole_200" onclick="selectType('convert','whole_200')">全血 200ml</button></div><input type="hidden" id="convertType"></div>
+        <div class="form-group-sm" id="convertArmRow"><label class="form-label-sm">採血した腕（任意）<span class="choice-clear" id="convertArmClear" onclick="clearChoice('convertArm')">✕ 解除</span></label><div class="choice-group" id="convertArmGroup"><button type="button" class="choice-btn" data-val="right" onclick="selectChoice('convertArm','right')">右腕</button><button type="button" class="choice-btn" data-val="left" onclick="selectChoice('convertArm','left')">左腕</button></div><input type="hidden" id="convertArm"></div>
+        <div class="form-group-sm" id="convertMachineRow" style="display:none;"><label class="form-label-sm">使用機器（任意）<span class="choice-clear" id="convertMachineClear" onclick="clearChoice('convertMachine')">✕ 解除</span></label><div class="choice-group" id="convertMachineGroup"><button type="button" class="choice-btn" data-val="trima" onclick="selectChoice('convertMachine','trima')">トリマアクセル</button><button type="button" class="choice-btn" data-val="ccs" onclick="selectChoice('convertMachine','ccs')">CCS</button></div><input type="hidden" id="convertMachine"></div>
+        <div class="form-group-sm" id="convertUnitsRow" style="display:none;"><label class="form-label-sm">採血単位数（任意）<span class="choice-clear" id="convertUnitsClear" onclick="clearChoice('convertUnits')">✕ 解除</span></label><div class="choice-group" id="convertUnitsGroup"><button type="button" class="choice-btn" data-val="10" onclick="selectChoice('convertUnits','10')">10単位</button><button type="button" class="choice-btn" data-val="20" onclick="selectChoice('convertUnits','20')">20単位</button></div><input type="hidden" id="convertUnits"></div>
         <div class="form-group-sm"><label class="form-label-sm">献血ルーム（任意）</label><button type="button" class="room-select-btn" onclick="openRoomPicker('convert')"><span class="room-name" id="convertRoomName">選択なし</span><span class="room-clear" onclick="clearRoom('convert');event.stopPropagation()">✕</span></button><input type="hidden" id="convertRoomId"></div>
         <div class="form-group-sm"><label class="form-label-sm">メモ（任意）</label><input type="text" id="convertNotes" class="form-ctrl" maxlength="200"></div>
         <div class="form-group-sm stamp-toggle-row" id="convertStampRow" style="display:none;">
@@ -423,7 +438,10 @@
         <div class="modal-title"><i class="fa-solid fa-edit" style="margin-right:8px; color:#e67e22;"></i>編集</div>
         <input type="hidden" id="editId">
         <div class="form-group-sm"><label class="form-label-sm">日付</label><input type="date" id="editDate" class="form-ctrl"></div>
-        <div class="form-group-sm"><label class="form-label-sm">種別</label><select id="editType" class="form-ctrl"><option value="plasma">血漿成分</option><option value="platelet">血小板成分</option><option value="whole_400">全血 400ml</option><option value="whole_200">全血 200ml</option></select></div>
+        <div class="form-group-sm"><label class="form-label-sm">種別</label><div class="choice-group choice-grid" id="editTypeGroup"><button type="button" class="choice-btn" data-val="plasma" onclick="selectType('edit','plasma')">血漿成分</button><button type="button" class="choice-btn" data-val="platelet" onclick="selectType('edit','platelet')">血小板成分</button><button type="button" class="choice-btn" data-val="whole_400" onclick="selectType('edit','whole_400')">全血 400ml</button><button type="button" class="choice-btn" data-val="whole_200" onclick="selectType('edit','whole_200')">全血 200ml</button></div><input type="hidden" id="editType"></div>
+        <div class="form-group-sm" id="editArmRow" style="display:none;"><label class="form-label-sm">採血した腕（任意）<span class="choice-clear" id="editArmClear" onclick="clearChoice('editArm')">✕ 解除</span></label><div class="choice-group" id="editArmGroup"><button type="button" class="choice-btn" data-val="right" onclick="selectChoice('editArm','right')">右腕</button><button type="button" class="choice-btn" data-val="left" onclick="selectChoice('editArm','left')">左腕</button></div><input type="hidden" id="editArm"></div>
+        <div class="form-group-sm" id="editMachineRow" style="display:none;"><label class="form-label-sm">使用機器（任意）<span class="choice-clear" id="editMachineClear" onclick="clearChoice('editMachine')">✕ 解除</span></label><div class="choice-group" id="editMachineGroup"><button type="button" class="choice-btn" data-val="trima" onclick="selectChoice('editMachine','trima')">トリマアクセル</button><button type="button" class="choice-btn" data-val="ccs" onclick="selectChoice('editMachine','ccs')">CCS</button></div><input type="hidden" id="editMachine"></div>
+        <div class="form-group-sm" id="editUnitsRow" style="display:none;"><label class="form-label-sm">採血単位数（任意）<span class="choice-clear" id="editUnitsClear" onclick="clearChoice('editUnits')">✕ 解除</span></label><div class="choice-group" id="editUnitsGroup"><button type="button" class="choice-btn" data-val="10" onclick="selectChoice('editUnits','10')">10単位</button><button type="button" class="choice-btn" data-val="20" onclick="selectChoice('editUnits','20')">20単位</button></div><input type="hidden" id="editUnits"></div>
         <div class="form-group-sm"><label class="form-label-sm">献血ルーム（任意）</label><button type="button" class="room-select-btn" onclick="openRoomPicker('edit')"><span class="room-name" id="editRoomName">選択なし</span><span class="room-clear" onclick="clearRoom('edit');event.stopPropagation()">✕</span></button><input type="hidden" id="editRoomId"></div>
         <div class="form-group-sm"><label class="form-label-sm">メモ（任意）</label><input type="text" id="editNotes" class="form-ctrl" maxlength="200"></div>
         <div class="modal-footer-btns"><button class="btn-gray" onclick="closeModal('modalEdit')">キャンセル</button><button class="btn-orange" onclick="saveEdit()">保存</button></div>
@@ -550,6 +568,8 @@ const PREF_MAP        = Object.fromEntries(PREFS.map(p => [p.prefId, p.prefName]
 const ROOM_MAP        = Object.fromEntries(ROOMS.map(r => [r.roomId, r.roomName]));
 const TYPE_LABEL = { whole_200:'200', whole_400:'400', plasma:'血漿', platelet:'血小' };
 const TYPE_LABEL_LONG = { whole_200:'全血 200ml', whole_400:'全血 400ml', plasma:'血漿成分', platelet:'血小板成分' };
+const ARM_LABEL       = { right:'右腕', left:'左腕' };
+const MACHINE_LABEL   = { trima:'トリマアクセル', ccs:'CCS' };
 const IS_WHOLE = t => t === 'whole_200' || t === 'whole_400';
 
 let curYear  = @ViewBag.Year;
@@ -909,6 +929,53 @@ function updateStampToggle(target) {
     }
 }
 
+// ── 実績のみの入力欄（腕・機器・単位数）の出し分け ──────────────
+let _editIsActual = false;
+function updateActualFields(target) {
+    var isActual = target === 'plan' ? _addRecordType === 'actual'
+                 : target === 'edit' ? _editIsActual
+                 : true;  // convert は常に実績
+    var type = document.getElementById(target + 'Type').value;
+    var isComp = type === 'plasma' || type === 'platelet';
+    toggleActualRow(target, 'Arm',     isActual);
+    toggleActualRow(target, 'Machine', isActual && isComp);
+    toggleActualRow(target, 'Units',   isActual && type === 'platelet');
+}
+function toggleActualRow(target, name, show) {
+    document.getElementById(target + name + 'Row').style.display = show ? '' : 'none';
+    if (!show) setChoice(target + name, '');
+}
+// セグメントボタン：任意項目は同じボタンをもう一度押すと解除
+function selectChoice(id, val) {
+    setChoice(id, document.getElementById(id).value === val ? '' : val);
+}
+function clearChoice(id) { setChoice(id, ''); }
+// 種別は必須なので解除させず、変更時に実績欄を出し直す
+function selectType(target, val) {
+    setChoice(target + 'Type', val);
+    updateActualFields(target);
+}
+function setChoice(id, val) {
+    document.getElementById(id).value = val || '';
+    document.querySelectorAll('#' + id + 'Group .choice-btn').forEach(function(b) {
+        b.classList.toggle('selected', b.dataset.val === val);
+    });
+    var clearBtn = document.getElementById(id + 'Clear');
+    if (clearBtn) clearBtn.classList.toggle('show', !!val);
+}
+function actualParams(target) {
+    return {
+        armSide:       document.getElementById(target + 'Arm').value,
+        machine:       document.getElementById(target + 'Machine').value,
+        plateletUnits: document.getElementById(target + 'Units').value,
+    };
+}
+function setActualFields(target, r) {
+    setChoice(target + 'Arm',     r.armSide || '');
+    setChoice(target + 'Machine', r.machine || '');
+    setChoice(target + 'Units',   r.plateletUnits ? String(r.plateletUnits) : '');
+}
+
 let _selectedGender = null;
 let _pendingGenderRequired = false;
 function openGenderModal(required) {
@@ -949,20 +1016,22 @@ function setAddType(t) {
         : '<i class="fa-solid fa-check-circle" style="margin-right:8px;color:#27ae60;"></i>実績を追加';
     document.getElementById('addPlanSaveBtn').className = isPlan ? 'btn-red' : 'btn-green';
     updateStampToggle('plan');
+    updateActualFields('plan');
 }
 function openAddPlanModal(dateStr) {
     var p = dateStr.split('-');
     document.getElementById('planDateDisp').value = p[0] + '年' + parseInt(p[1]) + '月' + parseInt(p[2]) + '日';
     document.getElementById('planDateRaw').value = dateStr;
-    document.getElementById('planType').value = 'plasma';
+    setChoice('planType', 'plasma');
     document.getElementById('planNotes').value = '';
+    setActualFields('plan', {});
     clearRoom('plan');
     setAddType('plan');
     openModal('modalAddPlan');
 }
 function savePlan() {
     var applyStamp = _addRecordType === 'actual' && document.getElementById('planStampCheck').checked;
-    postForm('/Tracker/AddPlan', { userId: USER_ID, donationDate: document.getElementById('planDateRaw').value, donationType: document.getElementById('planType').value, notes: document.getElementById('planNotes').value, roomId: document.getElementById('planRoomId').value || '', recordType: _addRecordType }, function(d) {
+    postForm('/Tracker/AddPlan', Object.assign({ userId: USER_ID, donationDate: document.getElementById('planDateRaw').value, donationType: document.getElementById('planType').value, notes: document.getElementById('planNotes').value, roomId: document.getElementById('planRoomId').value || '', recordType: _addRecordType }, actualParams('plan')), function(d) {
         if (!d.success) { showMsg(d.message, '❌'); return; }
         closeModal('modalAddPlan');
         if (applyStamp && d.recordId) {
@@ -977,7 +1046,13 @@ function openDetail(r) {
     var isWhole = IS_WHOLE(r.donationType), isPlan = r.recordType === 'plan';
     document.getElementById('detailTitle').innerHTML = (isPlan ? '予定詳細' : '実績詳細');
     var roomLabel = (r.roomId && ROOM_MAP[r.roomId]) ? ROOM_MAP[r.roomId] : '-';
-    document.getElementById('detailBody').innerHTML = detailRow('日付', r.donationDate.replace(/-/g, '/')) + detailRow('種別', TYPE_LABEL_LONG[r.donationType]) + detailRow('区分', isPlan ? '📅 予定' : '✅ 実績') + detailRow('献血ルーム', roomLabel) + detailRow('メモ', r.notes || '-');
+    var actualRows = '';
+    if (!isPlan) {
+        if (r.armSide)       actualRows += detailRow('採血した腕', ARM_LABEL[r.armSide] || '-');
+        if (r.machine)       actualRows += detailRow('使用機器',   MACHINE_LABEL[r.machine] || '-');
+        if (r.plateletUnits) actualRows += detailRow('採血単位数', r.plateletUnits + '単位');
+    }
+    document.getElementById('detailBody').innerHTML = detailRow('日付', r.donationDate.replace(/-/g, '/')) + detailRow('種別', TYPE_LABEL_LONG[r.donationType]) + detailRow('区分', isPlan ? '📅 予定' : '✅ 実績') + actualRows + detailRow('献血ルーム', roomLabel) + detailRow('メモ', r.notes || '-');
     var actions = document.getElementById('detailActions');
     actions.innerHTML = '';
     if (isPlan) { var btnConv = document.createElement('button'); btnConv.className = 'btn-green'; btnConv.textContent = '実績に変換'; btnConv.onclick = function() { closeModal('modalDetail'); openConvertModal(r); }; actions.appendChild(btnConv); }
@@ -988,18 +1063,20 @@ function openDetail(r) {
 function detailRow(key, val) { return '<div class="detail-row"><span class="detail-key">' + esc(key) + '</span><span class="detail-val">' + esc(val) + '</span></div>'; }
 function openConvertModal(r) {
     document.getElementById('convertId').value    = r.id;
-    document.getElementById('convertType').value  = r.donationType;
+    setChoice('convertType', r.donationType);
     document.getElementById('convertNotes').value = r.notes || '';
     var rid = r.roomId || null;
     document.getElementById('convertRoomId').value = rid || '';
     document.getElementById('convertRoomName').textContent = (rid && ROOM_MAP[rid]) ? ROOM_MAP[rid] : '選択なし';
+    setActualFields('convert', r);
+    updateActualFields('convert');
     updateStampToggle('convert');
     openModal('modalConvert');
 }
 function doConvert() {
     var id = parseInt(document.getElementById('convertId').value);
     var applyStamp = document.getElementById('convertStampCheck').checked;
-    postForm('/Tracker/ConvertToActual', { userId: USER_ID, id, donationType: document.getElementById('convertType').value, notes: document.getElementById('convertNotes').value, roomId: document.getElementById('convertRoomId').value || '' }, function(d) {
+    postForm('/Tracker/ConvertToActual', Object.assign({ userId: USER_ID, id, donationType: document.getElementById('convertType').value, notes: document.getElementById('convertNotes').value, roomId: document.getElementById('convertRoomId').value || '' }, actualParams('convert')), function(d) {
         if (!d.success) { showMsg(d.message, '❌'); return; }
         delete ttCache[id]; closeModal('modalConvert');
         var afterReload = function() {
@@ -1016,16 +1093,19 @@ function doConvert() {
 function openEditModal(r) {
     document.getElementById('editId').value    = r.id;
     document.getElementById('editDate').value  = r.donationDate;
-    document.getElementById('editType').value  = r.donationType;
+    setChoice('editType', r.donationType);
     document.getElementById('editNotes').value = r.notes || '';
     var rid = r.roomId || null;
     document.getElementById('editRoomId').value = rid || '';
     document.getElementById('editRoomName').textContent = (rid && ROOM_MAP[rid]) ? ROOM_MAP[rid] : '選択なし';
+    _editIsActual = r.recordType === 'actual';
+    setActualFields('edit', r);
+    updateActualFields('edit');
     openModal('modalEdit');
 }
 function saveEdit() {
     var id = parseInt(document.getElementById('editId').value);
-    postForm('/Tracker/UpdateRecord', { userId: USER_ID, id, donationDate: document.getElementById('editDate').value, donationType: document.getElementById('editType').value, notes: document.getElementById('editNotes').value, roomId: document.getElementById('editRoomId').value || '' }, function(d) {
+    postForm('/Tracker/UpdateRecord', Object.assign({ userId: USER_ID, id, donationDate: document.getElementById('editDate').value, donationType: document.getElementById('editType').value, notes: document.getElementById('editNotes').value, roomId: document.getElementById('editRoomId').value || '' }, actualParams('edit')), function(d) {
         if (!d.success) { showMsg(d.message, '❌'); return; }
         delete ttCache[id]; closeModal('modalEdit');
         if (d.proposals && d.proposals.length > 0) showRescheduleModal(d.proposals); else reload();

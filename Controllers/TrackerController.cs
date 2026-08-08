@@ -10,7 +10,10 @@ public class TrackerController : Controller
 {
     private readonly KenketsuNoteContext _db;
 
-    private static readonly string[] ValidTypes = ["whole_200", "whole_400", "plasma", "platelet"];
+    private static readonly string[] ValidTypes         = ["whole_200", "whole_400", "plasma", "platelet"];
+    private static readonly string[] ValidArmSides      = ["right", "left"];
+    private static readonly string[] ValidMachines      = ["trima", "ccs"];
+    private static readonly int[]    ValidPlateletUnits = [10, 20];
 
     public TrackerController(KenketsuNoteContext db)
     {
@@ -124,6 +127,9 @@ public class TrackerController : Controller
                 r.ComponentCount,
                 r.Notes,
                 r.RoomId,
+                r.ArmSide,
+                Machine = r.ApheresisMachine,
+                r.PlateletUnits,
             }),
             intervalRanges = intervalRanges.Select(r => new
             {
@@ -228,6 +234,9 @@ public class TrackerController : Controller
                 r.RecordType,
                 r.Notes,
                 r.RoomId,
+                r.ArmSide,
+                Machine = r.ApheresisMachine,
+                r.PlateletUnits,
                 RoomName = r.RoomId.HasValue
                     ? (MasterData.Rooms.FirstOrDefault(rm => rm.RoomId == r.RoomId)?.RoomName ?? "")
                     : "",
@@ -257,7 +266,7 @@ public class TrackerController : Controller
     // 予定追加
     // ─────────────────────────────────────────────
     [HttpPost]
-    public async Task<IActionResult> AddPlan(string userId, string donationDate, string donationType, string? notes, int? roomId, string? recordType)
+    public async Task<IActionResult> AddPlan(string userId, string donationDate, string donationType, string? notes, int? roomId, string? recordType, string? armSide, string? machine, int? plateletUnits)
     {
         if (!TryParseDate(donationDate, out var date))
             return Json(new { success = false, message = "日付が不正です。" });
@@ -279,6 +288,7 @@ public class TrackerController : Controller
 
         var rec = BuildRecord(userId, date, donationType, rtype, notes);
         rec.RoomId = roomId;
+        ApplyActualDetails(rec, armSide, machine, plateletUnits);
         _db.KenketsuRecords.Add(rec);
         await _db.SaveChangesAsync();
 
@@ -304,7 +314,7 @@ public class TrackerController : Controller
     // 予定→実績変換
     // ─────────────────────────────────────────────
     [HttpPost]
-    public async Task<IActionResult> ConvertToActual(string userId, int id, string donationType, string? notes, int? roomId)
+    public async Task<IActionResult> ConvertToActual(string userId, int id, string donationType, string? notes, int? roomId, string? armSide, string? machine, int? plateletUnits)
     {
         if (!ValidTypes.Contains(donationType))
             return Json(new { success = false, message = "種別が不正です。" });
@@ -330,6 +340,7 @@ public class TrackerController : Controller
         record.ComponentCount = GetComponentCount(donationType);
         record.Notes          = notes ?? record.Notes;
         if (roomId.HasValue) record.RoomId = roomId;
+        ApplyActualDetails(record, armSide, machine, plateletUnits);
         record.UpdatedAt      = DateTime.Now;
         await _db.SaveChangesAsync();
 
@@ -427,7 +438,7 @@ public class TrackerController : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> UpdateRecord(string userId, int id, string donationDate, string donationType, string? notes, int? roomId)
+    public async Task<IActionResult> UpdateRecord(string userId, int id, string donationDate, string donationType, string? notes, int? roomId, string? armSide, string? machine, int? plateletUnits)
     {
         if (!TryParseDate(donationDate, out var date))
             return Json(new { success = false, message = "日付が不正です。" });
@@ -454,6 +465,7 @@ public class TrackerController : Controller
         record.ComponentCount = GetComponentCount(donationType);
         record.Notes          = notes;
         record.RoomId         = roomId;
+        ApplyActualDetails(record, armSide, machine, plateletUnits);
         record.UpdatedAt      = DateTime.Now;
         await _db.SaveChangesAsync();
 
@@ -700,6 +712,22 @@ public class TrackerController : Controller
         "platelet" => 2,
         _          => null,
     };
+
+    /// <summary>
+    /// 採血詳細（腕・機器・単位数）を種別と区分に合わせて正規化する。
+    /// 予定には付けず、機器は成分のみ、単位数は血小板のみ有効。
+    /// </summary>
+    private static void ApplyActualDetails(
+        KenketsuRecord rec, string? armSide, string? machine, int? plateletUnits)
+    {
+        var isActual = rec.RecordType == "actual";
+        rec.ArmSide = isActual && ValidArmSides.Contains(armSide) ? armSide : null;
+        rec.ApheresisMachine = isActual && rec.DonationType is "plasma" or "platelet"
+                               && ValidMachines.Contains(machine) ? machine : null;
+        rec.PlateletUnits = isActual && rec.DonationType == "platelet"
+                            && plateletUnits.HasValue && ValidPlateletUnits.Contains(plateletUnits.Value)
+                            ? plateletUnits : null;
+    }
 }
 
 public record RescheduleItem(int RecordId, string NewDate);

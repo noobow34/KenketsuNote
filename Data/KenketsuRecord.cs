@@ -39,6 +39,20 @@ public class KenketsuRecord
     [Column("room_id")]
     public int? RoomId { get; set; }
 
+    /// <summary>採血した腕: right / left。実績のみ使用。</summary>
+    [Column("arm_side")]
+    [MaxLength(5)]
+    public string? ArmSide { get; set; }
+
+    /// <summary>成分採血の使用機器: trima（トリマアクセル）/ ccs。成分の実績のみ使用。</summary>
+    [Column("apheresis_machine")]
+    [MaxLength(10)]
+    public string? ApheresisMachine { get; set; }
+
+    /// <summary>血小板の採血単位数 (10 or 20)。血小板の実績のみ使用。</summary>
+    [Column("platelet_units")]
+    public int? PlateletUnits { get; set; }
+
     [Column("notes")]
     [MaxLength(500)]
     public string? Notes { get; set; }
