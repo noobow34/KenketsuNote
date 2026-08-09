@@ -1,4 +1,4 @@
-const CACHE = 'kenketsu-note-v1';
+const CACHE = 'kenketsu-note-v2';
 const PRECACHE = ['/image/logo12.png', '/image/logo22.png', '/image/logo12-ogp.png'];
 
 self.addEventListener('install', e => {
