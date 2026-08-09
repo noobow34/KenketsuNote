@@ -1,5 +1,5 @@
 const CACHE = 'kenketsu-note-v1';
-const PRECACHE = ['/image/logo1.png', '/image/logo2.png', '/image/logo1-ogp.png'];
+const PRECACHE = ['/image/logo12.png', '/image/logo22.png', '/image/logo12-ogp.png'];
 
 self.addEventListener('install', e => {
     e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE)));

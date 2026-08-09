@@ -14,13 +14,13 @@
     <meta property="og:type" content="website">
     <meta property="og:title" content="けんけつノート">
     <meta property="og:description" content="献血の記録をもっと楽しく。全国スタンプ帳と計画管理で、次の献血へ。">
-    <meta property="og:image" content="https://kenketsu.noobow.me/image/logo1-ogp.png">
+    <meta property="og:image" content="https://kenketsu.noobow.me/image/logo12-ogp.png">
     <meta property="og:url" content="https://kenketsu.noobow.me/">
     <meta property="og:site_name" content="けんけつノート">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="けんけつノート">
     <meta name="twitter:description" content="献血の記録をもっと楽しく。全国スタンプ帳と計画管理で、次の献血へ。">
-    <meta name="twitter:image" content="https://kenketsu.noobow.me/image/logo1-ogp.png">
+    <meta name="twitter:image" content="https://kenketsu.noobow.me/image/logo12-ogp.png">
     <meta name="twitter:creator" content="@@noobow">
     <link rel="manifest" href="/pwa/manifest?userId=@userId&page=hub">
     <meta name="theme-color" content="#d32f2f">
@@ -38,10 +38,15 @@
             padding: 0 16px;
             text-align: center;
         }
+        .hub-title {
+            margin: 0 0 4px;
+        }
         .hub-title img {
-            height: 200px;
-            width: auto;
-            margin-bottom: 4px;
+            width: clamp(330px, 62vw, 400px);
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
         }
         .hub-username {
             color: #555;
@@ -136,7 +141,7 @@
 </head>
 <body>
 <div class="hub-wrap">
-    <h1 class="hub-title"><img src="/image/logo1.png" alt="けんけつノート"></h1>
+    <h1 class="hub-title"><img src="/image/logo12.png" alt="けんけつノート"></h1>
     @if (!string.IsNullOrEmpty(userName))
     {
         <p class="hub-username">@userName さん</p>

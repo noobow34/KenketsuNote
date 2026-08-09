@@ -27,8 +27,8 @@ public class PwaController : Controller
             lang            = "ja",
             icons           = new[]
             {
-                new { src = "/image/logo192.png", sizes = "192x192", type = "image/png", purpose = "any" },
-                new { src = "/image/logo512.png", sizes = "512x512", type = "image/png", purpose = "any maskable" },
+                new { src = "/image/logo192-2.png", sizes = "192x192", type = "image/png", purpose = "any" },
+                new { src = "/image/logo512-2.png", sizes = "512x512", type = "image/png", purpose = "any maskable" },
             },
         };
 

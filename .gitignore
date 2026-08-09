@@ -362,3 +362,6 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /Properties/launchSettings.json
+
+# Claude Code local preview launch config
+/.claude/launch.json
