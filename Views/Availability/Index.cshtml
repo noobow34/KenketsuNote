@@ -1,0 +1,250 @@
+@{
+    Layout = null;
+
+    // リリースのたびにここだけ更新する
+    const string appVersion = "v1.1.0";
+    const string assetName = $"KenketsuAvailability-{appVersion}-win-x64.exe";
+    const string repoUrl = "https://github.com/noobow34/KenketsuAvailability";
+    const string downloadUrl = $"{repoUrl}/releases/download/{appVersion}/{assetName}";
+
+    // OGPのURLは絶対パスでないといけない。localhostで開いたときに本番を指してしまわないよう、
+    // アクセスされたホストから組み立てる。
+    // 本番はリバースプロキシ配下で、Program.cs が X-Forwarded-Proto を見ていない都合上
+    // スキームが http で届くため、localhost 以外は https 固定にする。
+    var host = Context.Request.Host;
+    bool isLocalhost = host.Host is "localhost" or "127.0.0.1" or "::1";
+    string baseUrl = $"{(isLocalhost ? Context.Request.Scheme : "https")}://{host}";
+
+    string pageUrl = $"{baseUrl}/availability";
+    string ogImageUrl = $"{baseUrl}/image/kenketsu-availability.png";
+    const string pageTitle = "献血空き横断検索（Windows用アプリ）";
+    const string pageDescription = "複数の献血ルームの予約の空き状況を、まとめて確認できるWindows用アプリ。特定の日について複数ルームを、特定のルームについて複数の日を横断して探せます。";
+}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="description" content="@pageDescription">
+<meta property="og:type" content="website">
+<meta property="og:title" content="@pageTitle">
+<meta property="og:description" content="@pageDescription">
+<meta property="og:image" content="@ogImageUrl">
+<meta property="og:image:width" content="1137">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="献血空き横断検索の画面。複数の献血ルームの空き時間が一覧表示されている">
+<meta property="og:url" content="@pageUrl">
+<meta property="og:site_name" content="けんけつノート">
+<meta property="og:locale" content="ja_JP">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="@pageTitle">
+<meta name="twitter:description" content="@pageDescription">
+<meta name="twitter:image" content="@ogImageUrl">
+<meta name="twitter:image:alt" content="献血空き横断検索の画面。複数の献血ルームの空き時間が一覧表示されている">
+<meta name="twitter:creator" content="@@noobow">
+<link rel="canonical" href="@pageUrl">
+<title>@pageTitle | けんけつノート</title>
+<link rel="icon" href="/favicon.ico"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;font-size:15px;line-height:1.7;color:#333;background:#fff;}
+
+/* ── topbar ── */
+.topbar{position:sticky;top:0;z-index:100;background:#b71c1c;color:white;display:flex;align-items:center;padding:0 16px;height:52px;gap:10px;}
+.topbar-back{background:none;border:none;color:white;font-size:1.3rem;cursor:pointer;padding:4px 8px;margin-right:2px;border-radius:4px;}
+.topbar-back:hover{background:rgba(255,255,255,0.15);}
+.topbar-title{font-size:1rem;font-weight:700;color:white;}
+.topbar-sub{font-size:0.8rem;color:rgba(255,255,255,0.75);margin-top:1px;}
+
+/* ── layout ── */
+.wrap{max-width:720px;margin:0 auto;padding:24px 18px 80px;}
+h2{font-size:1.2rem;font-weight:700;color:#b71c1c;border-bottom:2px solid #ffcdd2;padding-bottom:6px;margin:32px 0 14px;}
+h3{font-size:1rem;font-weight:700;color:#444;margin:20px 0 6px;}
+p{margin-bottom:10px;}
+ul,ol{padding-left:1.5em;margin-bottom:10px;}
+li{margin-bottom:4px;}
+
+/* ── ヒーロー画像 ── */
+.hero-image{width:100%;border-radius:10px;border:1px solid #eee;display:block;margin-bottom:18px;}
+.lead{font-size:0.95rem;color:#555;}
+
+/* ── 注意事項 ── */
+.warn-box{background:#fce4ec;border-left:4px solid #e53935;padding:12px 16px;border-radius:0 6px 6px 0;margin:14px 0;font-size:0.9rem;}
+.note-box{background:#fff8e1;border-left:4px solid #ffb300;padding:12px 16px;border-radius:0 6px 6px 0;margin:14px 0;font-size:0.88rem;}
+.warn-box h3,.note-box h3{margin-top:0;color:#b71c1c;font-size:0.95rem;}
+.limit-list{background:#fff;border:1px solid #f5c6cb;border-radius:6px;padding:10px 14px 10px 32px;margin:8px 0;font-size:0.86rem;}
+
+/* ── 同意とダウンロード ── */
+.agree-card{background:#fafafa;border:2px solid #e0e0e0;border-radius:10px;padding:18px;margin:24px 0 8px;}
+.agree-line{display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:0.92rem;font-weight:700;color:#333;}
+.agree-line input{width:20px;height:20px;margin-top:2px;flex:0 0 auto;accent-color:#d32f2f;cursor:pointer;}
+.dl-area{margin-top:16px;text-align:center;}
+.dl-button{display:inline-block;background:#d32f2f;color:#fff;text-decoration:none;font-weight:700;
+           padding:14px 30px;border-radius:30px;box-shadow:0 3px 10px rgba(211,47,47,0.3);font-size:1rem;}
+.dl-button:hover{background:#b71c1c;}
+.dl-hint{display:block;font-size:0.78rem;color:#999;margin-top:8px;}
+.dl-locked{color:#aaa;font-size:0.88rem;text-align:center;margin-top:16px;}
+/* 同意するまでダウンロードリンクは出さない（JSで切り替える） */
+.dl-area{display:none;}
+
+/* ── 動作環境 ── */
+.tbl-wrap{overflow-x:auto;margin-bottom:14px;}
+table{width:100%;border-collapse:collapse;font-size:0.88rem;}
+th{background:#b71c1c;color:white;padding:7px 10px;text-align:left;white-space:nowrap;}
+td{padding:7px 10px;border-bottom:1px solid #f5e0e0;vertical-align:top;}
+tr:nth-child(even) td{background:#fff8f8;}
+
+a{color:#b71c1c;}
+footer{margin-top:36px;padding-top:14px;border-top:1px solid #eee;font-size:0.8rem;color:#999;text-align:center;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+    <button class="topbar-back" onclick="history.back()" aria-label="戻る">←</button>
+    <div>
+        <div class="topbar-title">献血空き横断検索</div>
+        <div class="topbar-sub">Windows用アプリのご案内</div>
+    </div>
+</div>
+
+<div class="wrap">
+
+    <img class="hero-image" src="~/image/kenketsu-availability.png"
+         alt="献血空き横断検索 — 献血ルームの空き状況をまとめて検索">
+
+    <p class="lead">
+        複数の献血ルームの<strong>予約の空き状況</strong>を、まとめて確認できる Windows 用のアプリです。
+    </p>
+
+    <ul>
+        <li><strong>ルーム横断</strong>：特定の日について、複数の献血ルームの空きをまとめて確認</li>
+        <li><strong>日付横断</strong>：特定の献血ルームについて、複数の日の空きをまとめて確認</li>
+        <li>全血400・血漿・血小板の空き時間を種別ごとに表示</li>
+    </ul>
+
+    <h2>⚠️ ご利用前に必ずお読みください</h2>
+
+    <div class="warn-box">
+        <h3>1. あえて手間のかかる配布形態にしています</h3>
+        <p>
+            本アプリは日本赤十字社の献血予約サイト（kenketsu.jp）のページを読み取って、
+            複数の献血ルームの空き状況を横断表示します。
+            作者は違法性はないと考えていますが、<strong>日本赤十字社側が想定しているアクセス方法ではありません</strong>。
+        </p>
+        <p style="margin-bottom:0;">
+            そのため、ブラウザから誰でも気軽に叩けるWebサービスとしては公開せず、
+            <strong>exeをダウンロードして自分のPCで実行する</strong>という、ひと手間かかる形にしています。
+            不特定多数のアクセスが1か所に集中しないようにするためです。
+        </p>
+    </div>
+
+    <div class="warn-box">
+        <h3>2. だからアクセス制限を入れています</h3>
+        <p>先方サイトへ過度な負荷をかけないよう、アプリ側で取得を制限しています。</p>
+        <ul class="limit-list">
+            <li>1件ずつ 0.3秒 あけて順番に取得（同時アクセスはしません）</li>
+            <li>1回の検索は 50ルーム まで（日付横断は 7日 まで）</li>
+            <li>検索と検索の間隔は 30秒 以上</li>
+            <li>1時間あたり 200件 まで</li>
+        </ul>
+        <p style="margin-bottom:0;"><strong>この制限を外して利用しないでください。</strong></p>
+    </div>
+
+    <div class="warn-box">
+        <h3>3. 日本赤十字社から要請があれば公開を停止します</h3>
+        <p style="margin-bottom:0;">
+            日本赤十字社から中止・削除のご要請をいただいた場合、配布物の公開を速やかに停止します。
+            あわせて、作者側の操作で<strong>ダウンロード済みのアプリを含めて即座に使用不可にできる仕組み</strong>を入れています。
+        </p>
+    </div>
+
+    <div class="warn-box">
+        <h3>4. 節度をもってご利用ください</h3>
+        <p>
+            先方の善意のサービスに乗らせてもらっている立場です。
+            必要以上に連打しない、常時起動して回し続けないなど、ご配慮をお願いします。
+        </p>
+        <p style="margin-bottom:0;">
+            空き状況の確認はこのアプリで行い、<strong>予約は必ず
+            <a href="https://www.kenketsu.jp/" target="_blank" rel="noopener">献血Web会員サービス「ラブラッド」</a>
+            から</strong>行ってください。
+        </p>
+    </div>
+
+    <div class="note-box">
+        <h3>日本赤十字社の関係者の方へ</h3>
+        <p style="margin-bottom:0;">
+            本アプリの挙動が不適切、あるいは公開自体が望ましくないとお考えの場合は、遠慮なくご連絡ください。速やかに対応します。
+            本アプリのアクセスは User-Agent に
+            <code>Noobow Bot (contact: https://noobow-bot-contact.pages.dev/)</code>
+            を付けて識別できるようにしています。<br>
+            連絡先：<a href="https://noobow-bot-contact.pages.dev/" target="_blank" rel="noopener">https://noobow-bot-contact.pages.dev/</a>
+            ／ <a href="@repoUrl/issues" target="_blank" rel="noopener">GitHub Issues</a>
+        </p>
+    </div>
+
+    <h2>ダウンロード</h2>
+
+    <div class="agree-card">
+        <label class="agree-line">
+            <input type="checkbox" id="agreeCheck" onchange="toggleDownload(this.checked)">
+            <span>上記の注意事項をすべて読み、理解した上で節度をもって利用します</span>
+        </label>
+
+        <div class="dl-locked" id="dlLocked">チェックするとダウンロードリンクが表示されます</div>
+
+        <div class="dl-area" id="dlArea">
+            <a class="dl-button" href="@downloadUrl">⬇ @assetName</a>
+            <span class="dl-hint">
+                @appVersion ／ インストール不要・単一ファイル（約67MB）<br>
+                ダウンロードした exe をそのまま実行してください
+            </span>
+        </div>
+    </div>
+
+    <h2>動作環境</h2>
+
+    <div class="tbl-wrap">
+        <table>
+            <tr><th>対応OS</th><td>Windows 10 1809 以降 / Windows 11（64bit）</td></tr>
+            <tr><th>必要なもの</th><td>WebView2 ランタイム（Windows 11 には標準で入っています）、インターネット接続</td></tr>
+            <tr><th>インストール</th><td>不要。.NET ランタイムの導入も不要です（自己完結・単一ファイル）</td></tr>
+            <tr><th>設定の保存先</th><td><code>%APPDATA%\KenketsuAvailability\</code></td></tr>
+            <tr><th>アンインストール</th><td>exe と上記フォルダを削除するだけ</td></tr>
+        </table>
+    </div>
+
+    <h2>ソースコード・変更履歴</h2>
+
+    <p>
+        ソースコードは公開しています。変更履歴や過去のバージョンもこちらから確認できます。<br>
+        <a href="@repoUrl" target="_blank" rel="noopener">@repoUrl</a>
+    </p>
+
+    <div class="note-box">
+        <p style="margin-bottom:0;">
+            本アプリは日本赤十字社とは一切関係のない、個人が作成した非公式のツールです。
+            表示される空き状況は取得時点のもので、正確性・最新性を保証しません。
+            実際の空き状況は必ず公式サイトでご確認ください。
+            本アプリの利用によって生じたいかなる損害についても、作者は責任を負いません。
+        </p>
+    </div>
+
+    <footer>
+        運営者：<a href="https://x.com/noobow">ぬーぼー</a>
+    </footer>
+
+</div>
+
+<script>
+    function toggleDownload(agreed) {
+        document.getElementById('dlArea').style.display = agreed ? 'block' : 'none';
+        document.getElementById('dlLocked').style.display = agreed ? 'none' : 'block';
+    }
+    //ブラウザがチェック状態を復元することがあるので、読み込み時に表示を合わせる
+    toggleDownload(document.getElementById('agreeCheck').checked);
+</script>
+
+</body>
+</html>
