@@ -130,9 +130,15 @@ footer{margin-top:36px;padding-top:14px;border-top:1px solid #eee;font-size:0.8r
         <p>
             本アプリは日本赤十字社の献血予約サイト（kenketsu.jp）のページを読み取って、
             複数の献血ルームの空き状況を横断表示します。
-            作者は違法性はないと考えていますが、<strong>日本赤十字社側が想定しているアクセス方法ではありません</strong>。
+        </p>
+        <p>
+            <a href="https://www.kenketsu.jp/Terms" target="_blank" rel="noopener">ラブラッドの利用規約</a>を確認したところ、
+            <strong>自動的なアクセスやデータの取得を禁止する条項はありませんでした</strong>
+            （2026年8月12日時点。制定日2022/9/1の第1条〜第15条に禁止事項の条項自体がなく、
+            <code>robots.txt</code> も予約ページを含めて <code>Allow: /</code> です）。
         </p>
         <p style="margin-bottom:0;">
+            ただし、<strong>禁止されていないことと、想定された使い方であることは別です。</strong>
             そのため、ブラウザから誰でも気軽に叩けるWebサービスとしては公開せず、
             <strong>exeをダウンロードして自分のPCで実行する</strong>という、ひと手間かかる形にしています。
             不特定多数のアクセスが1か所に集中しないようにするためです。
@@ -153,10 +159,29 @@ footer{margin-top:36px;padding-top:14px;border-top:1px solid #eee;font-size:0.8r
 
     <div class="warn-box">
         <h3>3. 日本赤十字社から要請があれば公開を停止します</h3>
-        <p style="margin-bottom:0;">
+        <p>
             日本赤十字社から中止・削除のご要請をいただいた場合、配布物の公開を速やかに停止します。
-            あわせて、作者側の操作で<strong>ダウンロード済みのアプリを含めて即座に使用不可にできる仕組み</strong>を入れています。
+            あわせて、ダウンロード済みのアプリについても取得を止められるようにしています。
         </p>
+        <p style="margin-bottom:0;">
+            仕組みは単純で、<strong>アプリが起動するたびに、作者が公開している設定ファイルを読みにいくだけ</strong>です。
+            そこに入っている「使用可能フラグ」が無効になっていると、アプリは検索画面を出さず停止中である旨を表示します。
+            献血ルームの一覧やアクセス制限値も、同じファイルから読み込んでいます。
+        </p>
+    </div>
+
+    <div class="note-box">
+        <h3>「遠隔で止める」＝あなたのPCを操作する、ではありません</h3>
+        <p>
+            アプリが自分から設定ファイルを<strong>読みにいっているだけ</strong>で、外から入ってくる経路はありません。
+        </p>
+        <ul style="margin-bottom:0;">
+            <li><strong>通信はアプリからの読み取りだけ</strong>です。作者側へあなたの情報を送る処理はありません</li>
+            <li><strong>PCを操作する機能はありません。</strong> 止められるのはこのアプリの検索機能だけで、
+                ファイルを消す・他のソフトを操作するといったことは一切しません</li>
+            <li><strong>常駐しません。</strong> アプリを終了すれば通信も停止も起こりません。設定を読むのは起動時の1回だけです</li>
+            <li>書き込むのは <code>%APPDATA%\KenketsuAvailability\</code> にある自分の設定ファイルとログだけです</li>
+        </ul>
     </div>
 
     <div class="warn-box">
