@@ -209,6 +209,27 @@ footer{margin-top:36px;padding-top:14px;border-top:1px solid #eee;font-size:0.8r
         </p>
     </div>
 
+    <h2>生年月日と性別の登録について</h2>
+
+    <p>
+        初回起動時に、生年月日と性別の登録をお願いしています。あとから変更もできます。
+    </p>
+    <p>
+        <strong>なぜ必要か</strong>：献血予約サイトの空き状況ページは、生年月日と性別を条件として
+        受け取る作りになっています。以前のバージョンは固定のダミー値を送っていましたが、
+        <strong>架空の値を送るのは不誠実である</strong>ため、ご自身の値を登録していただく形に改めました。
+    </p>
+
+    <div class="note-box">
+        <h3>この情報の扱い</h3>
+        <ul style="margin-bottom:0;">
+            <li>献血予約サイトへ<strong>空き状況を照会するときにのみ</strong>使用します</li>
+            <li><strong>作者を含む第三者へ送信されることはありません。</strong>
+                アプリが外部へ送るのは、この照会と、起動時の設定の読み取りだけです</li>
+            <li>保存先はお使いのPC内の <code>%APPDATA%\KenketsuAvailability\settings.json</code> だけです</li>
+        </ul>
+    </div>
+
     <h2>ダウンロード</h2>
 
     <div class="agree-card">
