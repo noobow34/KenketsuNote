@@ -6,7 +6,7 @@ namespace KenketsuNote.Middleware;
 public class ConditionalAuthRedirectMiddleware
 {
     private readonly RequestDelegate _next;
-    private static readonly string[] ExcludeList = [".CSS", ".JS", ".PNG", ".JPG", ".JPEG", ".GIF", ".ICO", ".WEBP", ".WOFF", ".WOFF2", "/ACCOUNT/LOGIN", "/SETCOOKIE"];
+    private static readonly string[] ExcludeList = [".CSS", ".JS", ".PNG", ".JPG", ".JPEG", ".GIF", ".ICO", ".WEBP", ".WOFF", ".WOFF2", "/ACCOUNT/LOGIN", "/SETCOOKIE", "/HEALTHZ"];
     private static readonly string AdminKey   = Environment.GetEnvironmentVariable("ADMIN_KEY")   ?? "";
     private static readonly string AdminValue = Environment.GetEnvironmentVariable("ADMIN_VALUE") ?? "";
 

@@ -37,6 +37,12 @@ builder.Services.AddAuth0WebAppAuthentication(options =>
 });
 builder.Services.AddDbContext<KenketsuNoteContext>();
 
+// デプロイスクリプトのヘルスチェック用。判定対象は「プロセスが起動してリクエストを受けられるか」と
+// 「DBに到達できるか」のみ。ラブラッドのスクレイピングやQuartzジョブの実行状況は、
+// 外部要因の失敗でデプロイがロールバックされるのを避けるため意図的に含めない。
+builder.Services.AddHealthChecks()
+    .AddNpgSql(connectionString, name: "postgres");
+
 builder.Services.AddQuartz(q =>
 {
     var roomCheckJobKey = new JobKey("RoomInfoCheckJob");
@@ -69,6 +75,10 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}")
     .WithStaticAssets();
+
+// ローカルからの curl で無認証で叩ける必要があるため AllowAnonymous。
+// ConditionalAuthRedirectMiddleware 側の ExcludeList にも /HEALTHZ を追加してある。
+app.MapHealthChecks("/healthz").AllowAnonymous();
 
 MasterData.Load();
 
