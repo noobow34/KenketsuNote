@@ -28,6 +28,7 @@ Controllers/
   StampController.cs      # 全国スタンプ (/u/{id}/stamp)
   TrackerController.cs    # 計画管理 (/u/{id}/tracker)
   ManualController.cs     # ヘルプページ (/manual)
+  AvailabilityController.cs # 献血空き横断検索の案内ページ (/availability)
   AdminController.cs      # 管理用API
 Data/                     # EF Core エンティティ
 Services/
@@ -44,6 +45,7 @@ sql/                      # DDL・マイグレーションSQL
 | `/u/{userId}/stamp` | 🗾 全国スタンプ |
 | `/u/{userId}/tracker` | 📅 計画管理 |
 | `/manual` | 📖 ヘルプ |
+| `/availability` | 💻 献血空き横断検索（PC用アプリ案内） |
 | `/s/{shareId}` | 👁️ スタンプ閲覧共有ページ |
 
 ## 🚀 セットアップ
