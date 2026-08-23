@@ -1,6 +1,7 @@
 using KenketsuNote.Infrastructure;
 using KenketsuNote.Data;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace KenketsuNote.Controllers;
 
@@ -15,6 +16,11 @@ public class HomeController : Controller
 
     public IActionResult Index()
     {
+        ViewBag.ChangeLogs = _db.ChangeLogs
+            .AsNoTracking()
+            .OrderByDescending(c => c.ReleasedOn)
+            .ThenByDescending(c => c.Id)
+            .ToList();
         return View();
     }
 

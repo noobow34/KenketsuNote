@@ -238,6 +238,34 @@ CREATE INDEX IF NOT EXISTS idx_room_check_result_checked_at
 CREATE INDEX IF NOT EXISTS idx_room_check_result_has_changes
     ON kenketsu.room_check_result (has_changes) WHERE has_changes = TRUE;
 
+-- ============================================================
+-- 更新履歴（トップページ表示）
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS kenketsu.change_log (
+    id          SERIAL PRIMARY KEY,
+    released_on DATE         NOT NULL,
+    content     VARCHAR(500) NOT NULL,
+    created_at  TIMESTAMP    NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_change_log_released_on
+    ON kenketsu.change_log (released_on DESC, id DESC);
+
+INSERT INTO kenketsu.change_log (released_on, content)
+SELECT * FROM (VALUES
+    (DATE '2026-08-08', '計画管理：実績に採血した腕・使用機器・採血単位数を記録、献血ルームのお気に入り登録に対応'),
+    (DATE '2026-07-02', '献血ルーム検索機能を追加'),
+    (DATE '2026-06-30', '全国スタンプ：ルームごとの献血履歴表示、シェアページでの履歴公開設定を追加'),
+    (DATE '2026-06-27', 'サイト開設（献血のあしあと＋計画管理を統合）')
+) AS v(released_on, content)
+WHERE NOT EXISTS (SELECT 1 FROM kenketsu.change_log);
+
+-- ============================================================
+-- ルーム情報チェック（差分の非表示指定）
+-- ============================================================
+
 CREATE TABLE IF NOT EXISTS kenketsu.room_dismissed_diff (
     id           BIGSERIAL PRIMARY KEY,
     room_id      INT         NOT NULL,

@@ -65,6 +65,8 @@ public class AdminController : Controller
         ViewBag.PrefsJson  = JsonSerializer.Serialize(MasterData.Prefectures.Select(p => new { p.PrefId, p.PrefName, p.CenterBlockId }), jsonOpt);
         ViewBag.BlocksJson = JsonSerializer.Serialize(MasterData.CenterBlocks.Select(b => new { b.CenterBlockId, b.CenterBlockName }), jsonOpt);
 
+        ViewBag.ChangeLogs = await LoadChangeLogsAsync();
+
         var jobState = await _db.RoomCheckJobStates.FindAsync(1);
         ViewBag.ScheduledHour    = jobState?.ScheduledHour    ?? 6;
         ViewBag.ScheduledMinute  = jobState?.ScheduledMinute  ?? 30;
@@ -261,6 +263,68 @@ public class AdminController : Controller
 
         return Json(new { success = true, message = $"Geminiモデルを「{model}」に変更しました。" });
     }
+
+    // ─────────────────────────────────────────────
+    // 更新履歴（トップページ表示）
+    // ─────────────────────────────────────────────
+    [HttpGet("change-logs")]
+    public async Task<IActionResult> ChangeLogs()
+    {
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
+        ViewBag.ChangeLogs = await LoadChangeLogsAsync();
+        return PartialView("_ChangeLogTable");
+    }
+
+    [HttpPost("change-log/save")]
+    public async Task<IActionResult> SaveChangeLog([FromForm] int? id, [FromForm] string releasedOn, [FromForm] string content)
+    {
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
+
+        if (!DateOnly.TryParse(releasedOn, out var date))
+            return Json(new { success = false, message = "日付が不正です。" });
+
+        content = (content ?? "").Trim();
+        if (string.IsNullOrEmpty(content))
+            return Json(new { success = false, message = "内容を入力してください。" });
+        if (content.Length > 500)
+            return Json(new { success = false, message = "内容は500文字以内で入力してください。" });
+
+        if (id is > 0)
+        {
+            var entry = await _db.ChangeLogs.FindAsync(id.Value);
+            if (entry is null) return Json(new { success = false, message = "対象が見つかりません。" });
+            entry.ReleasedOn = date;
+            entry.Content    = content;
+            entry.UpdatedAt  = DateTime.Now;
+        }
+        else
+        {
+            _db.ChangeLogs.Add(new ChangeLog { ReleasedOn = date, Content = content });
+        }
+        await _db.SaveChangesAsync();
+
+        return Json(new { success = true, message = id is > 0 ? "更新しました。" : "追加しました。" });
+    }
+
+    [HttpPost("change-log/delete")]
+    public async Task<IActionResult> DeleteChangeLog([FromForm] int id)
+    {
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
+
+        var entry = await _db.ChangeLogs.FindAsync(id);
+        if (entry is null) return Json(new { success = false, message = "対象が見つかりません。" });
+
+        _db.ChangeLogs.Remove(entry);
+        await _db.SaveChangesAsync();
+        return Json(new { success = true, message = "削除しました。" });
+    }
+
+    private Task<List<ChangeLog>> LoadChangeLogsAsync()
+        => _db.ChangeLogs
+            .AsNoTracking()
+            .OrderByDescending(c => c.ReleasedOn)
+            .ThenByDescending(c => c.Id)
+            .ToListAsync();
 
     [HttpPost("reload-master")]
     public IActionResult ReloadMaster()

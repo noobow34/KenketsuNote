@@ -86,6 +86,16 @@ a{color:#1565c0;}
 .room-list-item:last-child{border-bottom:none;}
 .room-list-item:hover{background:#e3f2fd;}
 .room-list-item .room-pref-tag{font-size:0.72rem;color:#aaa;flex-shrink:0;}
+/* ── 更新履歴 ── */
+.mini-btn{padding:3px 9px;border:1px solid #ddd;border-radius:6px;background:white;font-size:0.75rem;color:#555;cursor:pointer;}
+.mini-btn:hover{background:#f0f0f0;}
+.mini-btn.danger{color:#c62828;border-color:#f0c0c0;}
+.mini-btn.danger:hover{background:#fdecea;}
+.cl-form{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #f0f0f0;}
+.cl-form input[type=date]{padding:7px;border:1.5px solid #ddd;border-radius:6px;font-size:0.9rem;}
+.cl-form textarea{flex:1;min-width:240px;padding:7px 9px;border:1.5px solid #ddd;border-radius:6px;font-size:0.9rem;font-family:inherit;resize:vertical;min-height:38px;}
+.cl-form-actions{display:flex;gap:6px;align-items:center;}
+.cl-editing-note{width:100%;font-size:0.8rem;color:#1565c0;}
 .room-list-empty{padding:16px;text-align:center;color:#aaa;font-size:0.85rem;}
 </style>
 </head>
@@ -182,6 +192,30 @@ a{color:#1565c0;}
                 <button class="run-single-btn" onclick="updateLogRetention(this)">変更</button>
             </div>
             <div class="result-box" id="result-update-log-retention"></div>
+        </div>
+    </div>
+
+    <!-- ── 更新履歴 ── -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-icon">📝</span>
+            <span class="section-title">更新履歴（トップページ表示）</span>
+        </div>
+        <div class="section-body">
+            <div class="cl-form">
+                <input type="hidden" id="clId">
+                <input type="date" id="clDate">
+                <textarea id="clContent" maxlength="500" placeholder="更新内容（500文字以内）"></textarea>
+                <div class="cl-form-actions">
+                    <button type="button" class="run-single-btn" id="clSaveBtn" onclick="saveChangeLog(this)">追加</button>
+                    <button type="button" class="mini-btn" id="clCancelBtn" style="display:none;" onclick="resetChangeLogForm()">取消</button>
+                </div>
+                <div class="cl-editing-note" id="clEditingNote" style="display:none;"></div>
+            </div>
+            <div class="result-box" id="result-change-log"></div>
+            <div id="changeLogArea">
+                @await Html.PartialAsync("_ChangeLogTable")
+            </div>
         </div>
     </div>
 
@@ -510,6 +544,83 @@ async function updateLogRetention(btn) {
         btn.disabled = false;
     }
 }
+
+// ── 更新履歴 ──
+function todayStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function resetChangeLogForm() {
+    document.getElementById('clId').value = '';
+    document.getElementById('clDate').value = todayStr();
+    document.getElementById('clContent').value = '';
+    document.getElementById('clSaveBtn').textContent = '追加';
+    document.getElementById('clCancelBtn').style.display = 'none';
+    document.getElementById('clEditingNote').style.display = 'none';
+}
+function editChangeLog(btn) {
+    document.getElementById('clId').value = btn.dataset.id;
+    document.getElementById('clDate').value = btn.dataset.date;
+    document.getElementById('clContent').value = btn.dataset.content;
+    document.getElementById('clSaveBtn').textContent = '更新';
+    document.getElementById('clCancelBtn').style.display = '';
+    const note = document.getElementById('clEditingNote');
+    note.textContent = '編集中：' + btn.dataset.date;
+    note.style.display = '';
+    document.getElementById('clContent').focus();
+}
+async function reloadChangeLogs() {
+    const res  = await fetch('/admin/change-logs');
+    document.getElementById('changeLogArea').innerHTML = await res.text();
+}
+async function saveChangeLog(btn) {
+    const id      = document.getElementById('clId').value;
+    const date    = document.getElementById('clDate').value;
+    const content = document.getElementById('clContent').value.trim();
+    const resultEl = document.getElementById('result-change-log');
+    if (!date)    { alert('公開日を入力してください。'); return; }
+    if (!content) { alert('内容を入力してください。');   return; }
+
+    resultEl.className = 'result-box';
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<span class="spinner"></span>保存中…';
+    btn.disabled = true;
+    try {
+        const body = new URLSearchParams({ id: id || '', releasedOn: date, content });
+        const res  = await fetch('/admin/change-log/save', { method: 'POST', body });
+        const data = await res.json();
+        resultEl.className = 'result-box ' + (data.success ? 'ok' : 'err');
+        resultEl.textContent = data.message;
+        if (data.success) { resetChangeLogForm(); await reloadChangeLogs(); }
+    } catch (e) {
+        resultEl.className = 'result-box err';
+        resultEl.textContent = '通信エラー: ' + e.message;
+    } finally {
+        btn.disabled = false;
+    }
+}
+async function deleteChangeLog(btn) {
+    if (!confirm('この更新履歴を削除します。よろしいですか？\n\n' + btn.dataset.content)) return;
+    const resultEl = document.getElementById('result-change-log');
+    resultEl.className = 'result-box';
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<span class="spinner"></span>削除中…';
+    try {
+        const body = new URLSearchParams({ id: btn.dataset.id });
+        const res  = await fetch('/admin/change-log/delete', { method: 'POST', body });
+        const data = await res.json();
+        resultEl.className = 'result-box ' + (data.success ? 'ok' : 'err');
+        resultEl.textContent = data.message;
+        if (data.success) {
+            if (document.getElementById('clId').value === btn.dataset.id) resetChangeLogForm();
+            await reloadChangeLogs();
+        }
+    } catch (e) {
+        resultEl.className = 'result-box err';
+        resultEl.textContent = '通信エラー: ' + e.message;
+    }
+}
+resetChangeLogForm();
 
 async function runAction(action, btn) {
     const resultEl = document.getElementById('result-' + action);

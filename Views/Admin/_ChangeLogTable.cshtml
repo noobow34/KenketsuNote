@@ -1,0 +1,40 @@
+@using KenketsuNote.Data
+@{
+    var changeLogs = ViewBag.ChangeLogs as List<ChangeLog> ?? new List<ChangeLog>();
+}
+@if (changeLogs.Count == 0)
+{
+    <p class="empty-msg">更新履歴はまだ登録されていません。</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th style="width:110px;white-space:nowrap;">公開日</th>
+                <th>内容</th>
+                <th style="width:96px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var c in changeLogs)
+            {
+                <tr>
+                    <td style="white-space:nowrap;">@c.ReleasedOn.ToString("yyyy-MM-dd")</td>
+                    <td style="word-break:break-word;">@c.Content</td>
+                    <td style="white-space:nowrap;">
+                        <button type="button" class="mini-btn"
+                                data-id="@c.Id"
+                                data-date="@c.ReleasedOn.ToString("yyyy-MM-dd")"
+                                data-content="@c.Content"
+                                onclick="editChangeLog(this)">編集</button>
+                        <button type="button" class="mini-btn danger"
+                                data-id="@c.Id"
+                                data-content="@c.Content"
+                                onclick="deleteChangeLog(this)">削除</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
