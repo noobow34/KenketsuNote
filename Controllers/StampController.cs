@@ -221,6 +221,8 @@ public class StampController : Controller
         u.LastAccessAt = DateTime.Now;
         _db.SaveChanges();
 
+        ViewBag.Announcement = isShare ? null : KenketsuNote.Services.AnnouncementService.GetForUser(_db, u);
+
         var model = new StampModel
         {
             User              = u,

@@ -1427,6 +1427,10 @@ function installPwa() {
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 </script>
+@if (ViewBag.Announcement != null)
+{
+    @await Html.PartialAsync("_AnnouncementModal", (KenketsuNote.Services.AnnouncementView)ViewBag.Announcement)
+}
 @await Html.PartialAsync("_VersionFooter")
 </body>
 </html>

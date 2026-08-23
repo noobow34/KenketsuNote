@@ -1,0 +1,71 @@
+@using KenketsuNote.Data
+@{
+    var announcements = ViewBag.Announcements as List<Announcement> ?? new();
+    var logIds        = ViewBag.AnnouncementLogIds as Dictionary<int, List<int>> ?? new();
+    var changeLogs    = ViewBag.ChangeLogs as List<ChangeLog> ?? new();
+    var logMap        = changeLogs.ToDictionary(c => c.Id);
+}
+@if (announcements.Count == 0)
+{
+    <p class="empty-msg">お知らせはまだ登録されていません。</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th style="width:70px;">状態</th>
+                <th>内容</th>
+                <th style="width:150px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var a in announcements)
+            {
+                var ids = logIds.TryGetValue(a.Id, out var v) ? v : new List<int>();
+                <tr>
+                    <td style="white-space:nowrap;">
+                        @if (a.IsPublished)
+                        {
+                            <span class="badge ann-badge-on">公開中</span>
+                        }
+                        else
+                        {
+                            <span class="badge ann-badge-off">停止中</span>
+                        }
+                    </td>
+                    <td style="word-break:break-word;">
+                        <div style="font-weight:600;">@a.Title</div>
+                        @if (!string.IsNullOrWhiteSpace(a.Body))
+                        {
+                            <div class="btn-desc">本文あり（HTML @a.Body!.Length 文字）</div>
+                        }
+                        @if (ids.Count > 0)
+                        {
+                            <div class="btn-desc">
+                                更新履歴 @ids.Count 件：
+                                @string.Join(" / ", ids.Where(logMap.ContainsKey).Select(i => logMap[i].ReleasedOn.ToString("M/d")))
+                            </div>
+                        }
+                        <div class="btn-desc">更新 @a.UpdatedAt.ToString("yyyy-MM-dd HH:mm")</div>
+                    </td>
+                    <td style="white-space:nowrap;">
+                        <button type="button" class="mini-btn"
+                                data-id="@a.Id"
+                                data-title="@a.Title"
+                                data-body="@a.Body"
+                                data-published="@(a.IsPublished ? "1" : "0")"
+                                data-logids="@string.Join(",", ids)"
+                                onclick="editAnnouncement(this)">編集</button>
+                        <button type="button" class="mini-btn" data-id="@a.Id" onclick="toggleAnnouncement(this)">
+                            @(a.IsPublished ? "停止" : "公開")
+                        </button>
+                        <button type="button" class="mini-btn danger" data-id="@a.Id" data-title="@a.Title"
+                                onclick="deleteAnnouncement(this)">削除</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <p class="btn-desc" style="margin-top:8px;">公開中のうち最も新しい1件がユーザー画面に表示されます。</p>
+}

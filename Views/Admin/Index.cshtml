@@ -96,6 +96,19 @@ a{color:#1565c0;}
 .cl-form textarea{flex:1;min-width:240px;padding:7px 9px;border:1.5px solid #ddd;border-radius:6px;font-size:0.9rem;font-family:inherit;resize:vertical;min-height:38px;}
 .cl-form-actions{display:flex;gap:6px;align-items:center;}
 .cl-editing-note{width:100%;font-size:0.8rem;color:#1565c0;}
+/* -- お知らせ -- */
+.ann-badge-on {background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;}
+.ann-badge-off{background:#f5f5f5;color:#999;border:1px solid #ddd;}
+.ann-field{margin-bottom:10px;}
+.ann-field label{display:block;font-size:0.82rem;font-weight:600;color:#666;margin-bottom:4px;}
+.ann-field input[type=text],.ann-field textarea{width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:6px;font-size:0.9rem;font-family:inherit;box-sizing:border-box;}
+.ann-field textarea{min-height:110px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.82rem;}
+.ann-logpick{border:1px solid #eee;border-radius:8px;max-height:170px;overflow-y:auto;}
+.ann-logpick label{display:flex;gap:8px;align-items:flex-start;padding:7px 10px;font-size:0.83rem;font-weight:400;color:#444;border-bottom:1px solid #f5f5f5;cursor:pointer;margin:0;}
+.ann-logpick label:last-child{border-bottom:none;}
+.ann-logpick label:hover{background:#f8f8f8;}
+.ann-logpick .ann-log-date{color:#999;flex-shrink:0;}
+.ann-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
 .room-list-empty{padding:16px;text-align:center;color:#aaa;font-size:0.85rem;}
 </style>
 </head>
@@ -215,6 +228,60 @@ a{color:#1565c0;}
             <div class="result-box" id="result-change-log"></div>
             <div id="changeLogArea">
                 @await Html.PartialAsync("_ChangeLogTable")
+            </div>
+        </div>
+    </div>
+
+    <!-- ── お知らせ ── -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-icon">📣</span>
+            <span class="section-title">お知らせ（ユーザー画面のモーダル表示）</span>
+        </div>
+        <div class="section-body">
+            <input type="hidden" id="annId">
+            <div class="ann-field">
+                <label for="annTitleInput">タイトル</label>
+                <input type="text" id="annTitleInput" maxlength="100" placeholder="例）計画管理の不具合を修正しました">
+            </div>
+            <div class="ann-field">
+                <label for="annBodyInput">本文（HTMLで記述できます。空欄可）</label>
+                <textarea id="annBodyInput" placeholder="&lt;p&gt;いつもご利用ありがとうございます。&lt;/p&gt;"></textarea>
+            </div>
+            <div class="ann-field">
+                <label>一緒に表示する更新履歴（複数選択可）</label>
+                <div class="ann-logpick" id="annLogPick">
+                    @{
+                        var pickLogs = ViewBag.ChangeLogs as List<ChangeLog> ?? new();
+                    }
+                    @if (pickLogs.Count == 0)
+                    {
+                        <div class="empty-msg" style="padding:10px;">更新履歴がありません。</div>
+                    }
+                    else
+                    {
+                        @foreach (var c in pickLogs)
+                        {
+                            <label>
+                                <input type="checkbox" class="ann-log-cb" value="@c.Id">
+                                <span class="ann-log-date">@c.ReleasedOn.ToString("yyyy-MM-dd")</span>
+                                <span>@c.Content</span>
+                            </label>
+                        }
+                    }
+                </div>
+            </div>
+            <div class="ann-actions">
+                <label style="font-size:0.85rem;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                    <input type="checkbox" id="annPublished" checked> 公開する
+                </label>
+                <button type="button" class="run-single-btn" id="annSaveBtn" onclick="saveAnnouncement(this)">追加</button>
+                <button type="button" class="mini-btn" id="annCancelBtn" style="display:none;" onclick="resetAnnouncementForm()">取消</button>
+                <span class="cl-editing-note" id="annEditingNote" style="display:none;width:auto;"></span>
+            </div>
+            <div class="result-box" id="result-announcement"></div>
+            <div id="announcementArea" style="margin-top:12px;">
+                @await Html.PartialAsync("_AnnouncementTable")
             </div>
         </div>
     </div>
@@ -621,6 +688,90 @@ async function deleteChangeLog(btn) {
     }
 }
 resetChangeLogForm();
+
+// -- お知らせ --
+function annSelectedLogIds() {
+    return [...document.querySelectorAll('.ann-log-cb')].filter(cb => cb.checked).map(cb => cb.value).join(',');
+}
+function resetAnnouncementForm() {
+    document.getElementById('annId').value = '';
+    document.getElementById('annTitleInput').value = '';
+    document.getElementById('annBodyInput').value = '';
+    document.getElementById('annPublished').checked = true;
+    document.querySelectorAll('.ann-log-cb').forEach(cb => cb.checked = false);
+    document.getElementById('annSaveBtn').textContent = '追加';
+    document.getElementById('annCancelBtn').style.display = 'none';
+    document.getElementById('annEditingNote').style.display = 'none';
+}
+function editAnnouncement(btn) {
+    document.getElementById('annId').value = btn.dataset.id;
+    document.getElementById('annTitleInput').value = btn.dataset.title;
+    document.getElementById('annBodyInput').value = btn.dataset.body || '';
+    document.getElementById('annPublished').checked = btn.dataset.published === '1';
+    const ids = (btn.dataset.logids || '').split(',').filter(x => x);
+    document.querySelectorAll('.ann-log-cb').forEach(cb => cb.checked = ids.indexOf(cb.value) !== -1);
+    document.getElementById('annSaveBtn').textContent = '更新';
+    document.getElementById('annCancelBtn').style.display = '';
+    const note = document.getElementById('annEditingNote');
+    note.textContent = '編集中：' + btn.dataset.title;
+    note.style.display = '';
+    document.getElementById('annTitleInput').focus();
+}
+async function reloadAnnouncements() {
+    const res = await fetch('/admin/announcements');
+    document.getElementById('announcementArea').innerHTML = await res.text();
+}
+async function postAnnouncement(url, body, resultEl, btn) {
+    resultEl.className = 'result-box';
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<span class="spinner"></span>処理中…';
+    if (btn) btn.disabled = true;
+    try {
+        const res  = await fetch(url, { method: 'POST', body });
+        const data = await res.json();
+        resultEl.className = 'result-box ' + (data.success ? 'ok' : 'err');
+        resultEl.textContent = data.message;
+        return data.success;
+    } catch (e) {
+        resultEl.className = 'result-box err';
+        resultEl.textContent = '通信エラー: ' + e.message;
+        return false;
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+async function saveAnnouncement(btn) {
+    const title = document.getElementById('annTitleInput').value.trim();
+    const body  = document.getElementById('annBodyInput').value;
+    const logs  = annSelectedLogIds();
+    if (!title) { alert('タイトルを入力してください。'); return; }
+    if (!body.trim() && !logs) { alert('本文か更新履歴のどちらかは指定してください。'); return; }
+
+    const params = new URLSearchParams({
+        id:           document.getElementById('annId').value || '',
+        title:        title,
+        body:         body,
+        isPublished:  document.getElementById('annPublished').checked ? 'true' : 'false',
+        changeLogIds: logs
+    });
+    const ok = await postAnnouncement('/admin/announcement/save', params, document.getElementById('result-announcement'), btn);
+    if (ok) { resetAnnouncementForm(); await reloadAnnouncements(); }
+}
+async function toggleAnnouncement(btn) {
+    const params = new URLSearchParams({ id: btn.dataset.id });
+    const ok = await postAnnouncement('/admin/announcement/toggle-publish', params, document.getElementById('result-announcement'), btn);
+    if (ok) await reloadAnnouncements();
+}
+async function deleteAnnouncement(btn) {
+    if (!confirm('このお知らせを削除します。よろしいですか？\n\n' + btn.dataset.title)) return;
+    const params = new URLSearchParams({ id: btn.dataset.id });
+    const ok = await postAnnouncement('/admin/announcement/delete', params, document.getElementById('result-announcement'), btn);
+    if (ok) {
+        if (document.getElementById('annId').value === btn.dataset.id) resetAnnouncementForm();
+        await reloadAnnouncements();
+    }
+}
+resetAnnouncementForm();
 
 async function runAction(action, btn) {
     const resultEl = document.getElementById('result-' + action);

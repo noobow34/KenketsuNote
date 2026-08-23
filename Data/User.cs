@@ -34,4 +34,8 @@ public partial class User
 
     [Column("share_show_history")]
     public bool ShareShowHistory { get; set; } = false;
+
+    /// <summary>「次回から表示しない」を押したお知らせのID。より新しいお知らせが公開されれば再度表示される。</summary>
+    [Column("dismissed_announcement_id")]
+    public int? DismissedAnnouncementId { get; set; }
 }

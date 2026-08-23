@@ -42,6 +42,7 @@ public class TrackerController : Controller
         ViewBag.Today          = today.ToString("yyyy-MM-dd");
         ViewBag.GenderRequired = u.Gender == null;
         ViewBag.CurrentGender  = u.Gender;
+        ViewBag.Announcement   = AnnouncementService.GetForUser(_db, u);
 
         // ルームデータをJSON化してViewに渡す
         var rooms = MasterData.Rooms.Select(r => new

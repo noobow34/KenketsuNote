@@ -66,6 +66,7 @@ public class AdminController : Controller
         ViewBag.BlocksJson = JsonSerializer.Serialize(MasterData.CenterBlocks.Select(b => new { b.CenterBlockId, b.CenterBlockName }), jsonOpt);
 
         ViewBag.ChangeLogs = await LoadChangeLogsAsync();
+        await SetAnnouncementViewDataAsync();
 
         var jobState = await _db.RoomCheckJobStates.FindAsync(1);
         ViewBag.ScheduledHour    = jobState?.ScheduledHour    ?? 6;
@@ -272,6 +273,7 @@ public class AdminController : Controller
     {
         if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
         ViewBag.ChangeLogs = await LoadChangeLogsAsync();
+        await SetAnnouncementViewDataAsync();
         return PartialView("_ChangeLogTable");
     }
 
@@ -317,6 +319,117 @@ public class AdminController : Controller
         _db.ChangeLogs.Remove(entry);
         await _db.SaveChangesAsync();
         return Json(new { success = true, message = "削除しました。" });
+    }
+
+    // ─────────────────────────────────────────────
+    // お知らせ（ユーザー画面のモーダル表示）
+    // ─────────────────────────────────────────────
+    [HttpGet("announcements")]
+    public async Task<IActionResult> Announcements()
+    {
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
+        await SetAnnouncementViewDataAsync();
+        return PartialView("_AnnouncementTable");
+    }
+
+    [HttpPost("announcement/save")]
+    public async Task<IActionResult> SaveAnnouncement(
+        [FromForm] int? id, [FromForm] string title, [FromForm] string? body,
+        [FromForm] bool isPublished, [FromForm] string? changeLogIds)
+    {
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
+
+        title = (title ?? "").Trim();
+        if (string.IsNullOrEmpty(title))
+            return Json(new { success = false, message = "タイトルを入力してください。" });
+        if (title.Length > 100)
+            return Json(new { success = false, message = "タイトルは100文字以内で入力してください。" });
+
+        body = string.IsNullOrWhiteSpace(body) ? null : body.Trim();
+
+        var selectedIds = (changeLogIds ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => int.TryParse(x, out var n) ? n : 0)
+            .Where(n => n > 0)
+            .Distinct()
+            .ToList();
+
+        if (body == null && selectedIds.Count == 0)
+            return Json(new { success = false, message = "本文か更新履歴のどちらかは指定してください。" });
+
+        var validIds = await _db.ChangeLogs.Where(c => selectedIds.Contains(c.Id)).Select(c => c.Id).ToListAsync();
+
+        Announcement entry;
+        if (id is > 0)
+        {
+            var existing = await _db.Announcements.FindAsync(id.Value);
+            if (existing is null) return Json(new { success = false, message = "対象が見つかりません。" });
+
+            entry             = existing;
+            entry.Title       = title;
+            entry.Body        = body;
+            entry.IsPublished = isPublished;
+            entry.UpdatedAt   = DateTime.Now;
+
+            var links = _db.AnnouncementChangeLogs.Where(l => l.AnnouncementId == entry.Id);
+            _db.AnnouncementChangeLogs.RemoveRange(links);
+        }
+        else
+        {
+            entry = new Announcement { Title = title, Body = body, IsPublished = isPublished };
+            _db.Announcements.Add(entry);
+        }
+        await _db.SaveChangesAsync();
+
+        foreach (var logId in validIds)
+            _db.AnnouncementChangeLogs.Add(new AnnouncementChangeLog { AnnouncementId = entry.Id, ChangeLogId = logId });
+        await _db.SaveChangesAsync();
+
+        return Json(new { success = true, message = id is > 0 ? "更新しました。" : "追加しました。" });
+    }
+
+    [HttpPost("announcement/toggle-publish")]
+    public async Task<IActionResult> ToggleAnnouncementPublish([FromForm] int id)
+    {
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
+
+        var entry = await _db.Announcements.FindAsync(id);
+        if (entry is null) return Json(new { success = false, message = "対象が見つかりません。" });
+
+        entry.IsPublished = !entry.IsPublished;
+        entry.UpdatedAt   = DateTime.Now;
+        await _db.SaveChangesAsync();
+
+        return Json(new { success = true, message = entry.IsPublished ? "公開しました。" : "公開を停止しました。" });
+    }
+
+    [HttpPost("announcement/delete")]
+    public async Task<IActionResult> DeleteAnnouncement([FromForm] int id)
+    {
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
+
+        var entry = await _db.Announcements.FindAsync(id);
+        if (entry is null) return Json(new { success = false, message = "対象が見つかりません。" });
+
+        _db.AnnouncementChangeLogs.RemoveRange(_db.AnnouncementChangeLogs.Where(l => l.AnnouncementId == id));
+        _db.Announcements.Remove(entry);
+        await _db.SaveChangesAsync();
+        return Json(new { success = true, message = "削除しました。" });
+    }
+
+    private async Task SetAnnouncementViewDataAsync()
+    {
+        var announcements = await _db.Announcements
+            .AsNoTracking()
+            .OrderByDescending(a => a.Id)
+            .ToListAsync();
+
+        var links = await _db.AnnouncementChangeLogs.AsNoTracking().ToListAsync();
+
+        ViewBag.Announcements = announcements;
+        ViewBag.AnnouncementLogIds = announcements.ToDictionary(
+            a => a.Id,
+            a => links.Where(l => l.AnnouncementId == a.Id).Select(l => l.ChangeLogId).ToList());
     }
 
     private Task<List<ChangeLog>> LoadChangeLogsAsync()

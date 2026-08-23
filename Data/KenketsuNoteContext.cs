@@ -23,8 +23,10 @@ public partial class KenketsuNoteContext : DbContext
     // ── アクセスログ ──────────────────────────────────────
     public virtual DbSet<AccessLog> AccessLogs { get; set; }
 
-    // ── 更新履歴 ──────────────────────────────────────────
+    // ── 更新履歴・お知らせ ────────────────────────────────
     public virtual DbSet<ChangeLog> ChangeLogs { get; set; }
+    public virtual DbSet<Announcement> Announcements { get; set; }
+    public virtual DbSet<AnnouncementChangeLog> AnnouncementChangeLogs { get; set; }
 
     // ── 検索ログ ──────────────────────────────────────────
     public virtual DbSet<RoomSearchLog> RoomSearchLogs { get; set; }

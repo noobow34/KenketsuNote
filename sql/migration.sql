@@ -65,7 +65,8 @@ CREATE TABLE IF NOT EXISTS kenketsu.users (
     show_closed_default    BOOLEAN NOT NULL DEFAULT FALSE,
     gender                 VARCHAR(6),
     migrated_from_ashiato  BOOLEAN NOT NULL DEFAULT FALSE,
-    share_show_history     BOOLEAN NOT NULL DEFAULT FALSE
+    share_show_history     BOOLEAN NOT NULL DEFAULT FALSE,
+    dismissed_announcement_id INT
 );
 
 CREATE TABLE IF NOT EXISTS kenketsu.visit_stamp (
@@ -261,6 +262,26 @@ SELECT * FROM (VALUES
     (DATE '2026-06-27', 'サイト開設（献血のあしあと＋計画管理を統合）')
 ) AS v(released_on, content)
 WHERE NOT EXISTS (SELECT 1 FROM kenketsu.change_log);
+
+-- ============================================================
+-- お知らせ（各ユーザー画面のモーダル表示）
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS kenketsu.announcement (
+    id           SERIAL PRIMARY KEY,
+    title        VARCHAR(100) NOT NULL,
+    body         TEXT,
+    is_published BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at   TIMESTAMP    NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS kenketsu.announcement_change_log (
+    id              SERIAL PRIMARY KEY,
+    announcement_id INT NOT NULL REFERENCES kenketsu.announcement(id) ON DELETE CASCADE,
+    change_log_id   INT NOT NULL REFERENCES kenketsu.change_log(id)   ON DELETE CASCADE,
+    UNIQUE (announcement_id, change_log_id)
+);
 
 -- ============================================================
 -- ルーム情報チェック（差分の非表示指定）

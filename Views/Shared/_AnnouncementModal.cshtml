@@ -1,0 +1,81 @@
+@using KenketsuNote.Services
+@model AnnouncementView
+@*
+    各ユーザー画面で表示するお知らせモーダル。
+    ページ側に共通レイアウトがないため、CSS・JSともにこの部分ビュー内で完結させている。
+    クラス名は既存ページのモーダルと衝突しないよう ann- 接頭辞で統一。
+*@
+<style>
+    .ann-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 5000; display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .ann-box { background: #fff; border-radius: 16px; width: min(94vw, 480px); max-height: 86vh; display: flex; flex-direction: column; box-shadow: 0 8px 40px rgba(0,0,0,0.25); animation: annIn 0.16s ease; }
+    @@keyframes annIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .ann-header { display: flex; align-items: center; gap: 8px; padding: 16px 18px 12px; border-bottom: 1px solid #f0f0f0; }
+    .ann-title { font-size: 1rem; font-weight: 700; color: #333; flex: 1; word-break: break-word; }
+    .ann-body { padding: 16px 18px; overflow-y: auto; font-size: 0.9rem; line-height: 1.7; color: #444; }
+    .ann-body p { margin: 0 0 10px; }
+    .ann-body ul, .ann-body ol { margin: 0 0 10px 1.2em; }
+    .ann-body a { color: #c0392b; }
+    .ann-body img { max-width: 100%; height: auto; }
+    .ann-logs { margin-top: 4px; }
+    .ann-logs-title { font-size: 0.85rem; font-weight: 700; color: #c0392b; margin-bottom: 8px; }
+    .ann-log-item { display: flex; gap: 10px; padding: 7px 0; border-top: 1px solid #f5f5f5; font-size: 0.86rem; }
+    .ann-log-date { flex-shrink: 0; color: #999; font-variant-numeric: tabular-nums; }
+    .ann-log-text { word-break: break-word; }
+    .ann-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px 16px; border-top: 1px solid #f0f0f0; flex-wrap: wrap; }
+    .ann-btn { padding: 9px 16px; border-radius: 8px; font-size: 0.88rem; font-weight: 600; cursor: pointer; border: 1.5px solid #ddd; background: #fff; color: #666; }
+    .ann-btn:hover { background: #f7f7f7; }
+    .ann-btn-primary { border-color: #d32f2f; background: #d32f2f; color: #fff; }
+    .ann-btn-primary:hover { background: #b71c1c; }
+</style>
+
+<div class="ann-overlay" id="annOverlay">
+    <div class="ann-box" role="dialog" aria-modal="true" aria-labelledby="annTitle">
+        <div class="ann-header">
+            <span aria-hidden="true">📣</span>
+            <span class="ann-title" id="annTitle">@Model.Title</span>
+        </div>
+        <div class="ann-body">
+            @if (!string.IsNullOrWhiteSpace(Model.Body))
+            {
+                @* 管理画面から管理者のみが登録する本文のためHTMLをそのまま出力する *@
+                @Html.Raw(Model.Body)
+            }
+            @if (Model.ChangeLogs.Count > 0)
+            {
+                <div class="ann-logs">
+                    <div class="ann-logs-title">更新内容</div>
+                    @foreach (var log in Model.ChangeLogs)
+                    {
+                        <div class="ann-log-item">
+                            <span class="ann-log-date">@log.ReleasedOn.ToString("yyyy/MM/dd")</span>
+                            <span class="ann-log-text">@log.Content</span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+        <div class="ann-footer">
+            <button type="button" class="ann-btn" onclick="annDismiss()">次回から表示しない</button>
+            <button type="button" class="ann-btn ann-btn-primary" onclick="annClose()">閉じる</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    var ANN_ID      = @Model.Id;
+    var ANN_USER_ID = '@Model.UserId';
+
+    function annClose() {
+        var el = document.getElementById('annOverlay');
+        if (el) el.remove();
+    }
+    function annDismiss() {
+        var body = new URLSearchParams({ announcementId: ANN_ID });
+        fetch('/u/' + encodeURIComponent(ANN_USER_ID) + '/announcement/dismiss', { method: 'POST', body: body })
+            .catch(function () { /* 失敗しても閉じる動作は妨げない */ })
+            .finally(annClose);
+    }
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') annClose();
+    });
+</script>
