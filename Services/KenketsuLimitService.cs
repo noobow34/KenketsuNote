@@ -10,6 +10,7 @@ public class KenketsuLimitService
     // ── 定数 ─────────────────────────────────────────────────────
     private const int RollingWeeks      = 52;
     private const int ComponentMaxCount = 24;
+    private const int SearchLimitDays   = 365 * 3;
 
     // 200ml全血後：男女共通でいずれの献血も4週後
     private const int AnyAfter200Days             = 4  * 7;  // 28日
@@ -73,7 +74,7 @@ public class KenketsuLimitService
         int? excludeId = null)
         => EarliestPossibleDateWithReason(from, donationType, records, restrictions, excludeId).Date;
 
-    public (DateOnly Date, bool LimitConstrained, bool RestrictionConstrained)
+    public NextPossibleResult
         EarliestPossibleDateWithReason(
             DateOnly from,
             string donationType,
@@ -84,16 +85,23 @@ public class KenketsuLimitService
         var others = records.Where(r => excludeId == null || r.Id != excludeId).ToList();
 
         DateOnly intervalEarliest = from;
-        for (int i = 0; i < 365 * 3; i++)
+        for (int i = 0; i < SearchLimitDays; i++)
         {
             if (CheckInterval(intervalEarliest, donationType, others) == null)
                 break;
             intervalEarliest = intervalEarliest.AddDays(1);
         }
 
+        // 年間上限で日付を進めるとその先の献血がインターバル対象に変わることがあるため、
+        // 進めるたびにインターバルも再判定する
         DateOnly afterLimit = intervalEarliest;
-        for (int i = 0; i < 365 * 3; i++)
+        for (int i = 0; i < SearchLimitDays; i++)
         {
+            if (CheckInterval(afterLimit, donationType, others) != null)
+            {
+                afterLimit = afterLimit.AddDays(1);
+                continue;
+            }
             if (CheckRollingLimit(afterLimit, donationType, others) == null)
                 break;
             afterLimit = afterLimit.AddDays(1);
@@ -102,17 +110,37 @@ public class KenketsuLimitService
         DateOnly actual = afterLimit;
         if (restrictions != null && restrictions.Count > 0)
         {
-            for (int i = 0; i < 365 * 3; i++)
+            // 手動制限の明けでも同様に、インターバル・年間上限を再判定する
+            for (int i = 0; i < SearchLimitDays; i++)
             {
                 var hit = restrictions.FirstOrDefault(r => EffectiveContains(r, actual, others));
-                if (hit == null) break;
-                actual = hit.EndDate.AddDays(1);
+                if (hit != null)
+                {
+                    actual = hit.EndDate.AddDays(1);
+                    continue;
+                }
+                if (CheckInterval(actual, donationType, others) != null ||
+                    CheckRollingLimit(actual, donationType, others) != null)
+                {
+                    actual = actual.AddDays(1);
+                    continue;
+                }
+                break;
             }
         }
 
-        bool limitConstrained       = afterLimit > intervalEarliest;
-        bool restrictionConstrained = actual > afterLimit;
-        return (actual, limitConstrained, restrictionConstrained);
+        // 「いつまでその制限がかかっているか」を求める。
+        // インターバルだけで決まる期間は対象外とし、実際に日付を後ろへ押している範囲だけを見る。
+        DateOnly? limitUntil = null;
+        for (var d = intervalEarliest; d < actual; d = d.AddDays(1))
+            if (CheckRollingLimit(d, donationType, others) != null) limitUntil = d;
+
+        DateOnly? restrictionUntil = null;
+        if (restrictions != null && restrictions.Count > 0)
+            for (var d = afterLimit; d < actual; d = d.AddDays(1))
+                if (restrictions.Any(r => EffectiveContains(r, d, others))) restrictionUntil = d;
+
+        return new NextPossibleResult(actual, limitUntil != null, restrictionUntil != null, limitUntil, restrictionUntil);
     }
 
     public IReadOnlyList<RescheduleProposal> CalculateReschedule(
@@ -182,8 +210,8 @@ public class KenketsuLimitService
         int usedMl    = inWindow.Where(r => r.IsWhole).Sum(r => r.VolumeMl ?? 0);
         int usedCount = inWindow.Where(r => r.IsComponent).Sum(r => r.ComponentCount ?? 0);
 
-        var (wholeDate, wholeLC, wholeRC) = TryEarliestDateWithReason("whole_400", baseDate, records, restrictions);
-        var (compDate,  compLC,  compRC)  = TryEarliestDateWithReason("plasma",    baseDate, records, restrictions);
+        var whole = TryEarliestDateWithReason("whole_400", baseDate, records, restrictions);
+        var comp  = TryEarliestDateWithReason("plasma",    baseDate, records, restrictions);
 
         var activeRestrictions = restrictions?
             .Where(r => r.EndDate >= baseDate)
@@ -196,12 +224,16 @@ public class KenketsuLimitService
             MaxVolumeMl                         = _wholeMaxMl,
             UsedComponentCount                  = usedCount,
             MaxComponentCount                   = ComponentMaxCount,
-            NextWholePossible                   = wholeDate,
-            NextComponentPossible               = compDate,
-            NextWholeLimitConstrained           = wholeLC,
-            NextComponentLimitConstrained       = compLC,
-            NextWholeRestrictionConstrained     = wholeRC,
-            NextComponentRestrictionConstrained = compRC,
+            NextWholePossible                   = whole?.Date,
+            NextComponentPossible               = comp?.Date,
+            NextWholeLimitConstrained           = whole?.LimitConstrained       ?? false,
+            NextComponentLimitConstrained       = comp?.LimitConstrained        ?? false,
+            NextWholeRestrictionConstrained     = whole?.RestrictionConstrained ?? false,
+            NextComponentRestrictionConstrained = comp?.RestrictionConstrained  ?? false,
+            NextWholeLimitUntil                 = whole?.LimitUntil,
+            NextComponentLimitUntil             = comp?.LimitUntil,
+            NextWholeRestrictionUntil           = whole?.RestrictionUntil,
+            NextComponentRestrictionUntil       = comp?.RestrictionUntil,
             ActiveRestrictions                  = activeRestrictions,
         };
     }
@@ -285,8 +317,10 @@ public class KenketsuLimitService
         for (var d = from; d <= to; d = d.AddDays(1))
         {
             var windowStart = d.AddDays(-(RollingWeeks * 7 - 1));
+            // 同日の献血は含めない：その献血で上限に達しても当日は制限なしと見せる仕様のため
+            // （インターバルの範囲計算と同じ扱い）
             var inWindow = records
-                .Where(r => r.DonationDate >= windowStart && r.DonationDate <= d)
+                .Where(r => r.DonationDate >= windowStart && r.DonationDate < d)
                 .ToList();
 
             int usedMl    = inWindow.Where(r => r.IsWhole).Sum(r => r.VolumeMl ?? 0);
@@ -348,6 +382,7 @@ public class KenketsuLimitService
         if (isWholeTarget)
         {
             // 全血を狙う場合：全血インターバルと成分インターバルを独立に評価し、厳しい方を返す
+            // 同日の献血は含めない：献血した当日は制限が始まっていないように見せる仕様のため
             var lastWhole = others.Where(r => r.DonationDate < targetDate && r.IsWhole).MaxBy(r => r.DonationDate);
             var lastComp  = others.Where(r => r.DonationDate < targetDate && !r.IsWhole).MaxBy(r => r.DonationDate);
 
@@ -384,6 +419,7 @@ public class KenketsuLimitService
             return wholeErr ?? compErr;
         }
 
+        // 同日の献血は含めない：献血した当日は制限が始まっていないように見せる仕様のため
         var last = others
             .Where(r => r.DonationDate < targetDate)
             .MaxBy(r => r.DonationDate);
@@ -464,18 +500,13 @@ public class KenketsuLimitService
         return null;
     }
 
-    private (DateOnly? Date, bool LimitConstrained, bool RestrictionConstrained)
-        TryEarliestDateWithReason(
-            string donationType, DateOnly from,
-            IReadOnlyList<KenketsuRecord> records,
-            IReadOnlyList<KenketsuRestriction>? restrictions)
+    private NextPossibleResult? TryEarliestDateWithReason(
+        string donationType, DateOnly from,
+        IReadOnlyList<KenketsuRecord> records,
+        IReadOnlyList<KenketsuRestriction>? restrictions)
     {
-        try
-        {
-            var (date, lc, rc) = EarliestPossibleDateWithReason(from, donationType, records, restrictions);
-            return (date, lc, rc);
-        }
-        catch { return (null, false, false); }
+        try   { return EarliestPossibleDateWithReason(from, donationType, records, restrictions); }
+        catch { return null; }
     }
 
     private static KenketsuRecord Clone(KenketsuRecord r) => new()
@@ -511,6 +542,17 @@ public class RescheduleProposal
 
 public record DateRangeInfo(DateOnly Start, DateOnly End, string Kind);
 
+/// <summary>次回可能日と、その日付を遅らせている制限の内訳</summary>
+/// <param name="Date">次に献血できる最短の日付</param>
+/// <param name="LimitUntil">年間上限がかかっている最終日（かかっていなければ null）</param>
+/// <param name="RestrictionUntil">手動制限がかかっている最終日（かかっていなければ null）</param>
+public record NextPossibleResult(
+    DateOnly  Date,
+    bool      LimitConstrained,
+    bool      RestrictionConstrained,
+    DateOnly? LimitUntil,
+    DateOnly? RestrictionUntil);
+
 public class KenketsuSummary
 {
     public int       UsedVolumeMl                        { get; init; }
@@ -523,6 +565,10 @@ public class KenketsuSummary
     public bool      NextComponentLimitConstrained       { get; init; }
     public bool      NextWholeRestrictionConstrained     { get; init; }
     public bool      NextComponentRestrictionConstrained { get; init; }
+    public DateOnly? NextWholeLimitUntil                 { get; init; }
+    public DateOnly? NextComponentLimitUntil             { get; init; }
+    public DateOnly? NextWholeRestrictionUntil           { get; init; }
+    public DateOnly? NextComponentRestrictionUntil       { get; init; }
     public IReadOnlyList<KenketsuRestriction> ActiveRestrictions { get; init; } = [];
 
     public int RemainingMl    => MaxVolumeMl       - UsedVolumeMl;

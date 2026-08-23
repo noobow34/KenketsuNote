@@ -184,6 +184,10 @@ public class TrackerController : Controller
             s.NextComponentLimitConstrained,
             s.NextWholeRestrictionConstrained,
             s.NextComponentRestrictionConstrained,
+            NextWholeLimitUntil                = s.NextWholeLimitUntil?.ToString("yyyy/MM/dd"),
+            NextComponentLimitUntil            = s.NextComponentLimitUntil?.ToString("yyyy/MM/dd"),
+            NextWholeRestrictionUntil          = s.NextWholeRestrictionUntil?.ToString("yyyy/MM/dd"),
+            NextComponentRestrictionUntil      = s.NextComponentRestrictionUntil?.ToString("yyyy/MM/dd"),
             genderRequired = gender == null,
             activeRestrictions = s.ActiveRestrictions.Select(r =>
             {
@@ -577,6 +581,10 @@ public class TrackerController : Controller
             nextCompLimitConstrained  = nextComp?.LimitConstrained        ?? false,
             nextWholeRestConstrained  = nextWhole?.RestrictionConstrained ?? false,
             nextCompRestConstrained   = nextComp?.RestrictionConstrained  ?? false,
+            nextWholeLimitUntil       = nextWhole?.LimitUntil?.ToString("yyyy/MM/dd"),
+            nextCompLimitUntil        = nextComp?.LimitUntil?.ToString("yyyy/MM/dd"),
+            nextWholeRestUntil        = nextWhole?.RestrictionUntil?.ToString("yyyy/MM/dd"),
+            nextCompRestUntil         = nextComp?.RestrictionUntil?.ToString("yyyy/MM/dd"),
         });
     }
 
@@ -702,7 +710,7 @@ public class TrackerController : Controller
                    null, System.Globalization.DateTimeStyles.None, out date);
     }
 
-    private static (DateOnly Date, bool LimitConstrained, bool RestrictionConstrained)? TryNextDate(
+    private static NextPossibleResult? TryNextDate(
         KenketsuLimitService limit,
         string donationType, DateOnly baseDate,
         IReadOnlyList<KenketsuRecord> records,

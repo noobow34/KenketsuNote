@@ -654,8 +654,8 @@ function loadSummary() {
         document.getElementById('compBar').style.width  = cPct + '%';
         document.getElementById('wholeVal').textContent = '残' + s.remainingMl + 'ml / ' + s.maxVolumeMl + 'ml';
         document.getElementById('compVal').textContent  = '残' + s.remainingCount + '回 / ' + s.maxComponentCount + '回';
-        document.getElementById('nextWhole').innerHTML = formatNextDate(s.nextWholePossible, s.nextWholeLimitConstrained, s.nextWholeRestrictionConstrained);
-        document.getElementById('nextComp').innerHTML  = formatNextDate(s.nextComponentPossible, s.nextComponentLimitConstrained, s.nextComponentRestrictionConstrained);
+        document.getElementById('nextWhole').innerHTML = formatNextDate(s.nextWholePossible, s.nextWholeLimitConstrained, s.nextWholeRestrictionConstrained, s.nextWholeLimitUntil, s.nextWholeRestrictionUntil);
+        document.getElementById('nextComp').innerHTML  = formatNextDate(s.nextComponentPossible, s.nextComponentLimitConstrained, s.nextComponentRestrictionConstrained, s.nextComponentLimitUntil, s.nextComponentRestrictionUntil);
         renderRestrictionList(s.activeRestrictions);
     });
 }
@@ -1344,8 +1344,8 @@ function showTooltipTouch(e, rec) {
 }
 function closeTouchTooltip(e) { if (!document.getElementById('donTooltip').contains(e.target)) hideTooltip(); }
 function renderTooltip(d) {
-    document.getElementById('ttWhole').innerHTML = '全血：' + formatNextDate(d.nextWhole, d.nextWholeLimitConstrained, d.nextWholeRestConstrained);
-    document.getElementById('ttComp').innerHTML  = '成分：' + formatNextDate(d.nextComponent, d.nextCompLimitConstrained, d.nextCompRestConstrained);
+    document.getElementById('ttWhole').innerHTML = '全血：' + formatNextDate(d.nextWhole, d.nextWholeLimitConstrained, d.nextWholeRestConstrained, d.nextWholeLimitUntil, d.nextWholeRestUntil);
+    document.getElementById('ttComp').innerHTML  = '成分：' + formatNextDate(d.nextComponent, d.nextCompLimitConstrained, d.nextCompRestConstrained, d.nextCompLimitUntil, d.nextCompRestUntil);
 }
 function moveTooltip(e) {
     var tt = document.getElementById('donTooltip'), gap = 14;
@@ -1358,10 +1358,17 @@ function hideTooltip() {
     ttCurrentId = null; ttCurrentRec = null;
     ttHideTimer = setTimeout(function() { var tt = document.getElementById('donTooltip'); tt.classList.remove('show'); tt.classList.remove('touch-mode'); tt.style.width = ''; }, 80);
 }
-function formatNextDate(dateStr, limitConstrained, restrictionConstrained) {
+// 「○/○まで」の表記。次回可能日と年が違う場合だけ年を付ける
+function untilLabel(untilStr, baseStr) {
+    var u = untilStr.split('/'), b = (baseStr || '').split('/');
+    return (u[0] === b[0] ? '' : u[0] + '/') + (+u[1]) + '/' + (+u[2]) + 'まで';
+}
+function formatNextDate(dateStr, limitConstrained, restrictionConstrained, limitUntil, restrictionUntil) {
     var text = dateStr || '今すぐ可能', html = esc(text);
-    if (restrictionConstrained && dateStr) html += '<span class="restriction-badge">⚠ 手動制限</span>';
-    else if (limitConstrained && dateStr) html += '<span class="limit-badge">⚠ 年間上限</span>';
+    if (dateStr && restrictionConstrained)
+        html += '<span class="restriction-badge">⚠ ' + (restrictionUntil ? esc(untilLabel(restrictionUntil, dateStr)) : '') + '手動制限</span>';
+    if (dateStr && limitConstrained)
+        html += '<span class="limit-badge">⚠ ' + (limitUntil ? esc(untilLabel(limitUntil, dateStr)) : '') + '年間上限</span>';
     return html;
 }
 function reload() { loadMonth(curYear, curMonth); loadSummary(); loadRecentRecords(); }
