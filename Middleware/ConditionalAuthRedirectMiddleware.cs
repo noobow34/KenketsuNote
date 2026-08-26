@@ -25,7 +25,7 @@ public class ConditionalAuthRedirectMiddleware
         context.Request.Cookies.TryGetValue(AdminKey, out string? adminCookieValue);
         if (!string.IsNullOrEmpty(AdminKey) && adminCookieValue == AdminValue)
         {
-            string returnUrl = context.Request.Path;
+            string returnUrl = context.Request.Path + context.Request.QueryString;
             context.Response.Cookies.Append(AdminKey, adminCookieValue, new CookieOptions
             {
                 Expires = DateTimeOffset.UtcNow.AddYears(1)
