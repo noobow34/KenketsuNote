@@ -204,6 +204,22 @@ CREATE INDEX IF NOT EXISTS idx_access_log_accessed_at ON kenketsu.access_log (ac
 CREATE INDEX IF NOT EXISTS idx_access_log_page        ON kenketsu.access_log (page);
 
 -- ============================================================
+-- Quartzジョブ設定（管理画面で有効/無効・スケジュールを変更）
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS kenketsu.job_schedule (
+    job_name        VARCHAR(100) PRIMARY KEY,
+    cron_expression VARCHAR(100) NOT NULL,  -- Quartz形式（秒 分 時 日 月 曜日）・JSTで解釈
+    is_enabled      BOOLEAN      NOT NULL DEFAULT TRUE,
+    updated_at      TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO kenketsu.job_schedule (job_name, cron_expression)
+    VALUES ('RoomInfoCheckJob', '0 30 6 * * ?'),
+           ('LogCleanupJob',    '0 0 3 * * ?')
+    ON CONFLICT (job_name) DO NOTHING;
+
+-- ============================================================
 -- Gemini差分チェック
 -- ============================================================
 
@@ -211,8 +227,6 @@ CREATE TABLE IF NOT EXISTS kenketsu.room_check_job_state (
     id                 INT PRIMARY KEY DEFAULT 1,
     next_offset        INT         NOT NULL DEFAULT 0,
     last_run_at        TIMESTAMPTZ,
-    scheduled_hour     INT         NOT NULL DEFAULT 6,
-    scheduled_minute   INT         NOT NULL DEFAULT 30,
     log_retention_days INT         NOT NULL DEFAULT 90,
     gemini_model       VARCHAR(100) NOT NULL DEFAULT 'gemini-3.5-flash-lite'
 );

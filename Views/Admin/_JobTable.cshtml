@@ -1,0 +1,37 @@
+@using KenketsuNote.Services
+@{
+    var jobs = ViewBag.Jobs as List<JobScheduleService.JobStatus> ?? new();
+}
+@if (jobs.Count == 0)
+{
+    <p class="empty-msg">管理対象のジョブがありません。</p>
+}
+else
+{
+    @foreach (var job in jobs)
+    {
+        <div class="job-row">
+            <div class="job-head">
+                <span class="job-title">@job.DisplayName</span>
+                <span class="badge @(job.IsEnabled ? "ann-badge-on" : "ann-badge-off")">@(job.IsEnabled ? "有効" : "無効")</span>
+                @if (job.IsRunning)
+                {
+                    <span class="badge badge-admin">実行中</span>
+                }
+                <span class="job-key">@job.JobName</span>
+            </div>
+            <div class="btn-desc">@job.Description</div>
+            <div class="job-controls">
+                <input type="text" class="job-cron" id="cron-@job.JobName" value="@job.CronExpression"
+                       maxlength="100" placeholder="0 30 6 * * ?">
+                <button type="button" class="run-single-btn" onclick="updateJobSchedule('@job.JobName', this)">変更</button>
+                <button type="button" class="mini-btn @(job.IsEnabled ? "danger" : "")"
+                        onclick="toggleJob('@job.JobName', this)">@(job.IsEnabled ? "無効化" : "有効化")</button>
+            </div>
+            <div class="job-meta">
+                次回実行：@(job.IsEnabled ? (job.NextRunJst?.ToString("yyyy-MM-dd HH:mm") ?? "予定なし") : "—")（JST）
+                ／ 設定更新：@job.UpdatedAt.ToString("yyyy-MM-dd HH:mm")
+            </div>
+        </div>
+    }
+}

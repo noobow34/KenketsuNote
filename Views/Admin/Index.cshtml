@@ -110,6 +110,19 @@ a{color:#1565c0;}
 .ann-logpick .ann-log-date{color:#999;flex-shrink:0;}
 .ann-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
 .room-list-empty{padding:16px;text-align:center;color:#aaa;font-size:0.85rem;}
+/* ── ジョブ管理 ── */
+.job-row{padding:12px 0;border-bottom:1px solid #f0f0f0;}
+.job-row:first-child{padding-top:0;}
+.job-row:last-child{border-bottom:none;padding-bottom:0;}
+.job-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px;}
+.job-title{font-size:0.9rem;font-weight:700;color:#333;}
+.job-key{font-size:0.72rem;color:#bbb;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+.job-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.job-cron{width:200px;padding:7px 9px;border:1.5px solid #ddd;border-radius:6px;font-size:0.9rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+.job-cron:focus{outline:none;border-color:#1565c0;}
+.job-meta{font-size:0.78rem;color:#888;margin-top:6px;}
+.cron-help{font-size:0.78rem;color:#888;margin-bottom:12px;line-height:1.6;}
+.cron-help code{background:#f5f5f5;border-radius:4px;padding:1px 5px;font-size:0.75rem;}
 </style>
 </head>
 <body>
@@ -190,6 +203,24 @@ a{color:#1565c0;}
         </div>
     </div>
 
+    <!-- ── ジョブ管理 ── -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-icon">⏰</span>
+            <span class="section-title">ジョブ管理（自動実行）</span>
+        </div>
+        <div class="section-body">
+            <div class="cron-help">
+                cron式は「秒 分 時 日 月 曜日」の6項目で、JSTで解釈します。<br>
+                例）毎日6:30 → <code>0 30 6 * * ?</code>　毎週月曜9:00 → <code>0 0 9 ? * MON</code>　1時間ごと → <code>0 0 * * * ?</code>
+            </div>
+            <div class="result-box" id="result-job"></div>
+            <div id="jobArea">
+                @await Html.PartialAsync("_JobTable")
+            </div>
+        </div>
+    </div>
+
     <!-- ── ログ管理 ── -->
     <div class="section">
         <div class="section-header">
@@ -201,7 +232,7 @@ a{color:#1565c0;}
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                 <input type="number" id="logRetentionDays" min="1" max="3650" value="@ViewBag.LogRetentionDays"
                        style="width:80px;padding:7px;border:1.5px solid #ddd;border-radius:6px;font-size:0.95rem;text-align:center;">
-                <span style="font-size:0.9rem;color:#666;">日（毎日 3:00 JST に自動削除）</span>
+                <span style="font-size:0.9rem;color:#666;">日（「ログ削除」ジョブで自動削除。実行時刻はジョブ管理で変更できます）</span>
                 <button class="run-single-btn" onclick="updateLogRetention(this)">変更</button>
             </div>
             <div class="result-box" id="result-update-log-retention"></div>
@@ -321,22 +352,10 @@ a{color:#1565c0;}
                 <div class="btn-desc" style="margin-top:4px;">一覧から選択、または直接入力できます（一覧取得失敗時も手入力で変更可能）</div>
                 <div class="result-box" id="result-update-gemini-model"></div>
             </div>
-            <div style="border-bottom:1px solid #f0f0f0;padding-bottom:12px;margin-bottom:12px;">
-                <div class="btn-label" style="font-size:0.88rem;margin-bottom:6px;">自動実行時刻（JST）</div>
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <input type="number" id="schedHour"   min="0" max="23" value="@ViewBag.ScheduledHour"
-                           style="width:60px;padding:7px;border:1.5px solid #ddd;border-radius:6px;font-size:0.95rem;text-align:center;">
-                    <span style="font-size:1.1rem;font-weight:700;">:</span>
-                    <input type="number" id="schedMinute" min="0" max="59" value="@ViewBag.ScheduledMinute"
-                           style="width:60px;padding:7px;border:1.5px solid #ddd;border-radius:6px;font-size:0.95rem;text-align:center;">
-                    <button class="run-single-btn" onclick="updateSchedule(this)">変更</button>
-                </div>
-                <div class="result-box" id="result-update-schedule"></div>
-            </div>
             <button class="action-btn" onclick="runAction('run-room-check', this)">
                 <div>
                     <div class="btn-label">バッチ実行</div>
-                    <div class="btn-desc">次のバッチ（10ルーム）をGeminiでチェックします。完了まで数分かかります。</div>
+                    <div class="btn-desc">次のバッチ（10ルーム）をGeminiでチェックします。完了まで数分かかります。自動実行のスケジュールはジョブ管理で変更できます。</div>
                 </div>
             </button>
             <div class="result-box" id="result-run-room-check"></div>
@@ -521,26 +540,37 @@ async function loadLogPage(page) {
     document.getElementById('logTableArea').innerHTML = html;
 }
 
-async function updateSchedule(btn) {
-    const hour   = parseInt(document.getElementById('schedHour').value, 10);
-    const minute = parseInt(document.getElementById('schedMinute').value, 10);
-    const resultEl = document.getElementById('result-update-schedule');
+// ── ジョブ管理 ──
+async function reloadJobs() {
+    const res = await fetch('/admin/jobs');
+    document.getElementById('jobArea').innerHTML = await res.text();
+}
+async function postJob(url, params, btn) {
+    const resultEl = document.getElementById('result-job');
     resultEl.className = 'result-box';
     resultEl.style.display = 'block';
     resultEl.innerHTML = '<span class="spinner"></span>変更中…';
     btn.disabled = true;
     try {
-        const body = new URLSearchParams({ hour, minute });
-        const res  = await fetch('/admin/update-schedule', { method: 'POST', body });
+        const res  = await fetch(url, { method: 'POST', body: params });
         const data = await res.json();
         resultEl.className = 'result-box ' + (data.success ? 'ok' : 'err');
         resultEl.textContent = data.message;
+        if (data.success) await reloadJobs();
     } catch (e) {
         resultEl.className = 'result-box err';
         resultEl.textContent = '通信エラー: ' + e.message;
     } finally {
         btn.disabled = false;
     }
+}
+async function updateJobSchedule(jobName, btn) {
+    const cron = document.getElementById('cron-' + jobName).value.trim();
+    if (!cron) { alert('cron式を入力してください。'); return; }
+    await postJob('/admin/job/update-schedule', new URLSearchParams({ jobName, cron }), btn);
+}
+async function toggleJob(jobName, btn) {
+    await postJob('/admin/job/toggle-enabled', new URLSearchParams({ jobName }), btn);
 }
 
 // フォーカス時に一旦値を空にして全候補を表示させ、

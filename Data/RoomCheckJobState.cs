@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace KenketsuNote.Data;
 
+// 実行スケジュール（有効/無効・cron式）は job_schedule テーブル側で管理する
 [Table("room_check_job_state")]
 public class RoomCheckJobState
 {
@@ -16,13 +17,6 @@ public class RoomCheckJobState
 
     [Column("last_run_at")]
     public DateTimeOffset? LastRunAt { get; set; }
-
-    // JST での実行時刻（デフォルト 6:30）
-    [Column("scheduled_hour")]
-    public int ScheduledHour { get; set; } = 6;
-
-    [Column("scheduled_minute")]
-    public int ScheduledMinute { get; set; } = 30;
 
     // アクセスログ・検索ログの保持日数（デフォルト 90日）
     [Column("log_retention_days")]

@@ -3,6 +3,7 @@ using KenketsuNote.Auth;
 using KenketsuNote.Data;
 using KenketsuNote.Infrastructure;
 using KenketsuNote.Jobs;
+using KenketsuNote.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Quartz;
@@ -69,10 +70,10 @@ public class AdminController : Controller
         await SetAnnouncementViewDataAsync();
 
         var jobState = await _db.RoomCheckJobStates.FindAsync(1);
-        ViewBag.ScheduledHour    = jobState?.ScheduledHour    ?? 6;
-        ViewBag.ScheduledMinute  = jobState?.ScheduledMinute  ?? 30;
         ViewBag.LogRetentionDays = jobState?.LogRetentionDays ?? 90;
         ViewBag.GeminiModel      = jobState?.GeminiModel      ?? RoomInfoCheckJob.DefaultGeminiModel;
+
+        await SetJobViewDataAsync();
 
         // アクセス統計（直近14日）
         var since = DateTimeOffset.UtcNow.AddHours(9).AddDays(-13).Date;
@@ -177,34 +178,83 @@ public class AdminController : Controller
         return PartialView("_SearchLogTable");
     }
 
-    [HttpPost("update-schedule")]
-    public async Task<IActionResult> UpdateSchedule([FromForm] int hour, [FromForm] int minute)
+    // ─────────────────────────────────────────────
+    // ジョブ管理（Quartz）
+    // ─────────────────────────────────────────────
+    [HttpGet("jobs")]
+    public async Task<IActionResult> Jobs()
     {
         if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
-        if (hour < 0 || hour > 23 || minute < 0 || minute > 59)
-            return Json(new { success = false, message = "時刻が不正です。" });
+        await SetJobViewDataAsync();
+        return PartialView("_JobTable");
+    }
 
-        var state = await _db.RoomCheckJobStates.FindAsync(1);
-        if (state is null)
-        {
-            state = new RoomCheckJobState { Id = 1, NextOffset = 0 };
-            _db.RoomCheckJobStates.Add(state);
-        }
-        state.ScheduledHour   = hour;
-        state.ScheduledMinute = minute;
+    [HttpPost("job/update-schedule")]
+    public async Task<IActionResult> UpdateJobSchedule([FromForm] string jobName, [FromForm] string cron)
+    {
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
+
+        var def = JobRegistry.Find(jobName ?? "");
+        if (def is null) return Json(new { success = false, message = "ジョブが見つかりません。" });
+
+        cron = (cron ?? "").Trim();
+        if (!JobScheduleService.IsValidCron(cron))
+            return Json(new { success = false, message = "cron式が不正です。（例: 毎日6:30 → 0 30 6 * * ?）" });
+        if (cron.Length > 100)
+            return Json(new { success = false, message = "cron式は100文字以内で指定してください。" });
+
+        var row = await FindOrCreateJobScheduleAsync(def);
+        row.CronExpression = cron;
+        row.UpdatedAt      = DateTime.Now;
         await _db.SaveChangesAsync();
 
-        var cron = $"0 {minute} {hour} * * ?";
         var scheduler = await _schedulerFactory.GetScheduler();
-        var triggerKey = new Quartz.TriggerKey("RoomInfoCheckJob-trigger");
-        var trigger = TriggerBuilder.Create()
-            .WithIdentity(triggerKey)
-            .ForJob(new JobKey("RoomInfoCheckJob"))
-            .WithCronSchedule(cron)
-            .Build();
-        await scheduler.RescheduleJob(triggerKey, trigger);
+        await JobScheduleService.ApplyAsync(scheduler, row);
 
-        return Json(new { success = true, message = $"実行時刻を {hour:D2}:{minute:D2} (JST) に変更しました。" });
+        var next = JobScheduleService.NextRunJst(cron);
+        var suffix = row.IsEnabled
+            ? $"次回実行は {next:yyyy-MM-dd HH:mm} (JST) です。"
+            : "このジョブは無効化中のため、有効化するまで実行されません。";
+        return Json(new { success = true, message = $"「{def.DisplayName}」のスケジュールを変更しました。{suffix}" });
+    }
+
+    [HttpPost("job/toggle-enabled")]
+    public async Task<IActionResult> ToggleJobEnabled([FromForm] string jobName)
+    {
+        if (!AdminAuth.IsAdmin(HttpContext)) return NotFound();
+
+        var def = JobRegistry.Find(jobName ?? "");
+        if (def is null) return Json(new { success = false, message = "ジョブが見つかりません。" });
+
+        var row = await FindOrCreateJobScheduleAsync(def);
+        row.IsEnabled = !row.IsEnabled;
+        row.UpdatedAt = DateTime.Now;
+        await _db.SaveChangesAsync();
+
+        var scheduler = await _schedulerFactory.GetScheduler();
+        await JobScheduleService.ApplyAsync(scheduler, row);
+
+        var message = row.IsEnabled
+            ? $"「{def.DisplayName}」を有効化しました。次回実行は {JobScheduleService.NextRunJst(row.CronExpression):yyyy-MM-dd HH:mm} (JST) です。"
+            : $"「{def.DisplayName}」を無効化しました。自動実行されなくなります。";
+        return Json(new { success = true, message });
+    }
+
+    private async Task<Data.JobSchedule> FindOrCreateJobScheduleAsync(JobRegistry.JobDefinition def)
+    {
+        var row = await _db.JobSchedules.FindAsync(def.Name);
+        if (row is null)
+        {
+            row = new Data.JobSchedule { JobName = def.Name, CronExpression = def.DefaultCron };
+            _db.JobSchedules.Add(row);
+        }
+        return row;
+    }
+
+    private async Task SetJobViewDataAsync()
+    {
+        var scheduler = await _schedulerFactory.GetScheduler();
+        ViewBag.Jobs = await JobScheduleService.GetStatusesAsync(_db, scheduler);
     }
 
     [HttpPost("update-log-retention")]

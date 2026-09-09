@@ -33,8 +33,19 @@ Controllers/
 Data/                     # EF Core エンティティ
 Services/
   KenketsuLimitService.cs # 献血インターバル・年間上限計算ロジック
+  JobScheduleService.cs   # ジョブ設定（DB）をQuartzスケジューラへ反映
+Jobs/                     # Quartzジョブ
+  RoomInfoCheckJob.cs     # 献血ルーム公式ページとDBの差分をGeminiでチェック
+  LogCleanupJob.cs        # アクセスログ・検索ログを保持期間で自動削除
+  JobRegistry.cs          # 管理画面で管理するジョブの定義一覧
 sql/                      # DDL・マイグレーションSQL
 ```
+
+## ⏰ 自動実行ジョブ（Quartz）
+
+ジョブの有効/無効と実行スケジュール（cron式・JST解釈）は管理画面「ジョブ管理」から変更でき、
+設定は `kenketsu.job_schedule` テーブルに保存されます（起動時にこの内容でトリガーを登録）。
+ジョブを追加する場合は `Jobs/JobRegistry.cs` に定義を1行足せば、Quartzへの登録と管理画面の表示に反映されます。
 
 ## 🔗 URL構造
 
@@ -58,11 +69,16 @@ sql/                      # DDL・マイグレーションSQL
 
 ### 🗄️ データベース
 
-```sql
--- スキーマ・テーブル作成
-\i sql/create_schema.sql
-\i sql/create_tracker_tables.sql
+スキーマ・テーブル定義は `sql/migration.sql` に統合されています。新規環境ではこれを1度だけ実行してください。
+
+```bash
+psql "$KENKETSUNOTE_CONNECTION_STRING" -f sql/migration.sql
 ```
+
+既存DBへの列追加・変更は `migration.sql` には反映されない（＝新規構築用のファイル）ため、
+`ALTER TABLE` を個別に実行してください。
+
+動作確認用のテストデータは `sql/testdata_*.sql` にあります（任意・実行前に既存データを確認してください）。
 
 ## 🔄 関連リポジトリ
 

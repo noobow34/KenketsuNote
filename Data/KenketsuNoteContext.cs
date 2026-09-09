@@ -31,6 +31,9 @@ public partial class KenketsuNoteContext : DbContext
     // ── 検索ログ ──────────────────────────────────────────
     public virtual DbSet<RoomSearchLog> RoomSearchLogs { get; set; }
 
+    // ── Quartzジョブ設定 ──────────────────────────────────
+    public virtual DbSet<JobSchedule> JobSchedules { get; set; }
+
     // ── ルーム情報チェックジョブ ──────────────────────────
     public virtual DbSet<RoomCheckJobState> RoomCheckJobStates { get; set; }
     public virtual DbSet<RoomCheckResult> RoomCheckResults { get; set; }

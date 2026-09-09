@@ -3,6 +3,7 @@ using KenketsuNote.Data;
 using KenketsuNote.Infrastructure;
 using KenketsuNote.Jobs;
 using KenketsuNote.Middleware;
+using KenketsuNote.Services;
 using Microsoft.AspNetCore.HttpOverrides;
 using Quartz;
 
@@ -45,11 +46,9 @@ builder.Services.AddHealthChecks()
 
 builder.Services.AddQuartz(q =>
 {
-    var roomCheckJobKey = new JobKey("RoomInfoCheckJob");
-    q.AddJob<RoomInfoCheckJob>(opts => opts.WithIdentity(roomCheckJobKey).StoreDurably());
-
-    var cleanupJobKey = new JobKey("LogCleanupJob");
-    q.AddJob<LogCleanupJob>(opts => opts.WithIdentity(cleanupJobKey).StoreDurably());
+    // トリガー（実行スケジュール）はDBの job_schedule から起動時に登録する
+    foreach (var def in JobRegistry.Jobs)
+        q.AddJob(def.JobType, new JobKey(def.Name), opts => opts.StoreDurably());
 });
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
@@ -86,34 +85,25 @@ MasterData.Load();
 var scheduler = await app.Services.GetRequiredService<Quartz.ISchedulerFactory>().GetScheduler();
 scheduler.Context["services"] = app.Services;
 
-// DBから実行時刻を読んでトリガーを登録
+// DBのジョブ設定（有効/無効・cron式）を読んでトリガーを登録
 using (var startupScope = app.Services.CreateScope())
 {
     var db = startupScope.ServiceProvider.GetRequiredService<KenketsuNoteContext>();
-    var state = await db.RoomCheckJobStates.FindAsync(1);
-    if (state is null)
+
+    // ルーム情報チェックジョブの状態行（次回offset・ログ保持日数など）を確保
+    if (await db.RoomCheckJobStates.FindAsync(1) is null)
     {
-        state = new RoomCheckJobState { Id = 1, NextOffset = 0 };
-        db.RoomCheckJobStates.Add(state);
+        db.RoomCheckJobStates.Add(new RoomCheckJobState { Id = 1, NextOffset = 0 });
         await db.SaveChangesAsync();
     }
-    var cron = $"0 {state.ScheduledMinute} {state.ScheduledHour} * * ?";
-    Console.WriteLine($"[Quartz] RoomInfoCheckJob スケジュール: {cron} (JST)");
-    var trigger = TriggerBuilder.Create()
-        .WithIdentity("RoomInfoCheckJob-trigger")
-        .ForJob(new JobKey("RoomInfoCheckJob"))
-        .WithCronSchedule(cron)
-        .Build();
-    await scheduler.ScheduleJob(trigger);
 
-    // ログ削除ジョブ：毎日 3:00 (JST) に実行
-    var cleanupTrigger = TriggerBuilder.Create()
-        .WithIdentity("LogCleanupJob-trigger")
-        .ForJob(new JobKey("LogCleanupJob"))
-        .WithCronSchedule("0 0 3 * * ?")
-        .Build();
-    await scheduler.ScheduleJob(cleanupTrigger);
-    Console.WriteLine("[Quartz] LogCleanupJob スケジュール: 毎日 3:00 (JST)");
+    foreach (var job in await JobScheduleService.SyncAllAsync(db, scheduler))
+    {
+        var schedule = job.IsEnabled
+            ? $"{job.CronExpression} (JST) 次回 {JobScheduleService.NextRunJst(job.CronExpression):yyyy-MM-dd HH:mm}"
+            : "無効";
+        Console.WriteLine($"[Quartz] {job.JobName} スケジュール: {schedule}");
+    }
 }
 
 app.Run();
