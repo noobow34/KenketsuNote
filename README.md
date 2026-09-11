@@ -18,6 +18,7 @@
 - **フレームワーク**: ASP.NET Core MVC (.NET 10)
 - **データベース**: PostgreSQL（スキーマ: `kenketsu`）
 - **ORM**: Entity Framework Core + Npgsql
+- **管理者認証**: Cloudflare Access（JWTを `Microsoft.AspNetCore.Authentication.JwtBearer` で検証）
 
 ## 📁 プロジェクト構成
 
@@ -59,6 +60,76 @@ sql/                      # DDL・マイグレーションSQL
 | `/availability` | 💻 献血空き横断検索（PC用アプリ案内） |
 | `/s/{shareId}` | 👁️ スタンプ閲覧共有ページ |
 | `/healthz` | 🩺 ヘルスチェック（デプロイスクリプト用・DB到達確認を含む） |
+
+## 🔐 管理者認証（Cloudflare Access）
+
+全ページがログイン不要で見える作りのまま、**管理者だけを見分けて**管理機能や管理者向け表示を出しています。
+Cloudflare Access はプロキシとして認証しますが、通過したリクエストに JWT を渡してくるので、
+これを検証すれば公開ページでも管理者を識別できます。
+
+### 仕組み
+
+1. Access アプリケーションは **`/Account/Login` だけ**を保護する。他のページは Access の外に置く。
+2. 管理者が `/Account/Login` を踏むと Cloudflare のログイン画面が出て、通過すると
+   ホストに `CF_Authorization` Cookie（中身は JWT）が発行される。
+3. この Cookie はパス `/` で発行されるためブラウザが全ページへ送る。
+   アプリは `Auth/CloudflareAccess.cs` でこれを検証し、成功すれば `User.Identity.IsAuthenticated` が立つ。
+   判定は従来どおり `AdminAuth.IsAdmin` で行う。
+4. 公開鍵は `https://{CF_ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs` から取得して 1 時間キャッシュする。
+   Access には OIDC のディスカバリ文書が無いため、`Authority` ではなく `IssuerSigningKeyResolver` で直接引いている。
+
+`ConditionalAuthRedirectMiddleware` は、`ADMIN_KEY`/`ADMIN_VALUE` の Cookie を持つ端末が未認証のときだけ
+`/Account/Login` へリダイレクトします。一般の利用者はこの Cookie を持たないのでログイン画面を見ることはありません。
+Cookie は `/SetCookie?key=...&value=...` で仕込みます。
+
+`/Account/Logout` は目印の Cookie を消したうえで `/cdn-cgi/access/logout` へ送ります
+（消さないとログアウト直後にまたログインへ飛ばされます）。
+
+### Access アプリケーションの設定
+
+| 項目 | 値 |
+|-----|-----|
+| Application type | Self-hosted |
+| Path | `kenketsu.noobow.me/Account/Login` |
+| Policy | Allow / Emails → 管理者のメールアドレス |
+| IdP | One-time PIN で足りる |
+
+発行された **Application Audience (AUD) タグ**を `CF_ACCESS_AUD` に設定します。
+
+管理機能のパス（`/Admin` など）は **Access の保護対象に入れていません**。
+アプリ側が `AdminAuth.IsAdmin` で `NotFound` を返しており、パスの存在自体を隠せるためです。
+また、同一ホストに複数の Access アプリケーションを作ると `CF_Authorization` の `aud` が混ざるため、
+アプリケーションは 1 つに保ってください。
+
+> **キャッシュ注意**: `/u/{userId}` には管理者向けの表示が含まれます。この HTML がエッジにキャッシュされると
+> 一般利用者に出てしまいます。Cloudflare は既定で HTML をキャッシュしませんが、Cache Everything 系の
+> ルールは入れないでください。入れる場合は `CF_Authorization` Cookie の有無で Bypass が必須です。
+
+### 🌐 環境変数
+
+| 変数 | 用途 |
+|-----|------|
+| `KENKETSUNOTE_CONNECTION_STRING` | PostgreSQL の接続文字列 |
+| `KENKETSUNOTE_BASE_URL` | 通知などで使う絶対 URL の基点 |
+| `CF_ACCESS_TEAM_DOMAIN` | Cloudflare Zero Trust のチームドメイン（例: `noobow.cloudflareaccess.com`）。JWT の `iss` と公開鍵の取得先 |
+| `CF_ACCESS_AUD` | Access アプリケーションの Application Audience (AUD) タグ |
+| `ADMIN_KEY` / `ADMIN_VALUE` | 管理者の端末を見分けるための Cookie の名前と値。一致した場合のみ未認証時に `/Account/Login` へ自動リダイレクトする |
+| `GEMINI_API_KEY` | `RoomInfoCheckJob` のルーム情報差分チェック |
+| `SLACK_BOT_TOKEN` / `SLACK_ROOM_CHECK_CHANNEL` | Slack 通知 |
+| `CF_ACCESS_DEV_ADMIN` | 開発専用。`ASPNETCORE_ENVIRONMENT=Development` かつ `1` のときだけ、認証済みの管理者になりすます |
+
+### 🚇 公開経路（Cloudflare Tunnel）
+
+`cloudflared` は Caddy の後ろに置き、Caddy はそのまま残します（TLS はエッジが終端）。
+
+```
+Cloudflare Edge → cloudflared → Caddy(localhost) → Kestrel(localhost:6002)
+```
+
+中継が 2 段になり `X-Forwarded-For` も 2 要素になるため、`Program.cs` の `UseForwardedHeaders` は
+`ForwardLimit = null` にしてあります。信頼できる中継（既定でループバックのみ）が続く限り遡るので、
+アクセスログには実クライアント IP が残ります。外部から偽装した値は中継元がループバックでなくなった時点で
+採用されません。
 
 ## 🚀 セットアップ
 

@@ -1,12 +1,17 @@
-using Auth0.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication;
+using KenketsuNote.Auth;
 
 namespace KenketsuNote.Middleware;
 
+/// <summary>
+/// 管理者の端末だけを自動でログインへ誘導する。
+/// サイトは全ページがログイン不要のため、Cloudflare Accessの保護対象は
+/// /Account/Login に絞ってある。ここでそこへリダイレクトすることで、
+/// 目印のCookieを持つ端末にだけAccessのログイン画面を出す。
+/// </summary>
 public class ConditionalAuthRedirectMiddleware
 {
     private readonly RequestDelegate _next;
-    private static readonly string[] ExcludeList = [".CSS", ".JS", ".PNG", ".JPG", ".JPEG", ".GIF", ".ICO", ".WEBP", ".WOFF", ".WOFF2", "/ACCOUNT/LOGIN", "/SETCOOKIE", "/HEALTHZ"];
+    private static readonly string[] ExcludeList = [".CSS", ".JS", ".PNG", ".JPG", ".JPEG", ".GIF", ".ICO", ".WEBP", ".WOFF", ".WOFF2", "/ACCOUNT/LOGIN", "/ACCOUNT/LOGOUT", "/SETCOOKIE", "/HEALTHZ"];
     private static readonly string AdminKey   = Environment.GetEnvironmentVariable("ADMIN_KEY")   ?? "";
     private static readonly string AdminValue = Environment.GetEnvironmentVariable("ADMIN_VALUE") ?? "";
 
@@ -30,10 +35,7 @@ public class ConditionalAuthRedirectMiddleware
             {
                 Expires = DateTimeOffset.UtcNow.AddYears(1)
             });
-            var authenticationProperties = new LoginAuthenticationPropertiesBuilder()
-                .WithRedirectUri(returnUrl)
-                .Build();
-            await context.ChallengeAsync(Auth0Constants.AuthenticationScheme, authenticationProperties);
+            context.Response.Redirect(CloudflareAccess.BuildLoginUrl(returnUrl));
             return;
         }
 
