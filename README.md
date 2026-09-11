@@ -120,16 +120,30 @@ Cookie は `/SetCookie?key=...&value=...` で仕込みます。
 
 ### 🚇 公開経路（Cloudflare Tunnel）
 
-`cloudflared` は Caddy の後ろに置き、Caddy はそのまま残します（TLS はエッジが終端）。
+`cloudflared` が Kestrel へ直接つなぎます。Caddy は廃止しました（TLS はエッジが終端）。
 
 ```
-Cloudflare Edge → cloudflared → Caddy(localhost) → Kestrel(localhost:6002)
+Cloudflare Edge → cloudflared → Kestrel(localhost:6002)
 ```
 
-中継が 2 段になり `X-Forwarded-For` も 2 要素になるため、`Program.cs` の `UseForwardedHeaders` は
-`ForwardLimit = null` にしてあります。信頼できる中継（既定でループバックのみ）が続く限り遡るので、
-アクセスログには実クライアント IP が残ります。外部から偽装した値は中継元がループバックでなくなった時点で
-採用されません。
+`~/.cloudflared/config.yml`:
+
+```yaml
+tunnel: <TUNNEL-ID>
+credentials-file: /home/noobow/.cloudflared/<TUNNEL-ID>.json
+
+ingress:
+  - hostname: kenketsu.noobow.me
+    service: http://localhost:6002
+  - service: http_status:404
+```
+
+`Program.cs` の `UseForwardedHeaders` は `ForwardLimit = null` にしてあります。
+信頼できる中継（既定でループバックのみ）が続く限り `X-Forwarded-For` を遡るので、
+アクセスログ・検索ログには実クライアント IP が残ります。中継元がループバックでなくなった時点で
+止まるため、Cloudflare より手前で偽装して差し込まれた値は採用されません。
+
+gzip / Brotli の圧縮と HSTS ヘッダは Caddy ではなく Cloudflare 側で設定します。
 
 ## 🚀 セットアップ
 

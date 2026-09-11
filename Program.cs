@@ -56,10 +56,10 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Home/Error");
 }
 
-// Cloudflare Tunnel経由だと cloudflared → Caddy → Kestrel と中継が2段になり、
-// X-Forwarded-For も2要素になる。ForwardLimitを外して、信頼できる中継
-// （既定でループバックのみ）が続く限り遡らせ、アクセスログに実クライアントIPを残す。
-// 遡るのは中継元がループバックの間だけなので、外部から偽装した値は採用されない
+// cloudflared から X-Forwarded-For で渡る実クライアントIPをアクセスログに残す。
+// ForwardLimitを外して、信頼できる中継（既定でループバックのみ）が続く限り遡らせる。
+// 中継元がループバックでなくなった時点で止まるため、Cloudflareより手前で
+// 偽装して差し込まれた値は採用されない
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor,
