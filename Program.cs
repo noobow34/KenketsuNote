@@ -1,4 +1,4 @@
-using Auth0.AspNetCore.Authentication;
+using KenketsuNote.Auth;
 using KenketsuNote.Data;
 using KenketsuNote.Infrastructure;
 using KenketsuNote.Jobs;
@@ -7,14 +7,14 @@ using KenketsuNote.Services;
 using Microsoft.AspNetCore.HttpOverrides;
 using Quartz;
 
-string connectionString = Environment.GetEnvironmentVariable("KENKETSUNOTE_CONNECTION_STRING") ?? "";
-string auth0Domain      = Environment.GetEnvironmentVariable("AUTH0_DOMAIN")                    ?? "";
-string auth0ClientId    = Environment.GetEnvironmentVariable("AUTH0_CLIENT_ID")                  ?? "";
+string connectionString   = Environment.GetEnvironmentVariable("KENKETSUNOTE_CONNECTION_STRING") ?? "";
+string cfAccessTeamDomain = Environment.GetEnvironmentVariable("CF_ACCESS_TEAM_DOMAIN")           ?? "";
+string cfAccessAud        = Environment.GetEnvironmentVariable("CF_ACCESS_AUD")                   ?? "";
 foreach (var (key, val) in new[]
 {
     ("KENKETSUNOTE_CONNECTION_STRING", connectionString),
-    ("AUTH0_DOMAIN",                   auth0Domain),
-    ("AUTH0_CLIENT_ID",                auth0ClientId),
+    ("CF_ACCESS_TEAM_DOMAIN",          cfAccessTeamDomain),
+    ("CF_ACCESS_AUD",                  cfAccessAud),
     ("ADMIN_KEY",                      Environment.GetEnvironmentVariable("ADMIN_KEY")                      ?? ""),
     ("ADMIN_VALUE",                    Environment.GetEnvironmentVariable("ADMIN_VALUE")                    ?? ""),
     ("GEMINI_API_KEY",                 Environment.GetEnvironmentVariable("GEMINI_API_KEY")                 ?? ""),
@@ -31,11 +31,8 @@ builder.Services.Configure<Microsoft.Extensions.WebEncoders.WebEncoderOptions>(o
 {
     options.TextEncoderSettings = new System.Text.Encodings.Web.TextEncoderSettings(System.Text.Unicode.UnicodeRanges.All);
 });
-builder.Services.AddAuth0WebAppAuthentication(options =>
-{
-    options.Domain   = auth0Domain;
-    options.ClientId = auth0ClientId;
-});
+// 管理者認証はCloudflare Accessが行い、アプリはAccessが発行したJWTを検証するだけ
+builder.Services.AddCloudflareAccess(cfAccessTeamDomain, cfAccessAud);
 builder.Services.AddDbContext<KenketsuNoteContext>();
 
 // デプロイスクリプトのヘルスチェック用。判定対象は「プロセスが起動してリクエストを受けられるか」と
@@ -59,12 +56,26 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Home/Error");
 }
 
+// cloudflared から X-Forwarded-For で渡る実クライアントIPをアクセスログに残す。
+// ForwardLimitを外して、信頼できる中継（既定でループバックのみ）が続く限り遡らせる。
+// 中継元がループバックでなくなった時点で止まるため、Cloudflareより手前で
+// 偽装して差し込まれた値は採用されない
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor,
+    ForwardLimit     = null
 });
 app.UseRouting();
 app.UseAuthentication();
+#if DEBUG
+// 手元での実行ではCloudflareを経由せずAccessのJWTが手に入らないため、明示的に指定したときだけ管理者になりすます。
+// 本番は -c Release で publish するのでこのブロックごとバイナリに入らない。
+// ASPNETCORE_ENVIRONMENT を取り違えても発火しようがない状態にしておく
+if (app.Environment.IsDevelopment() && Environment.GetEnvironmentVariable("CF_ACCESS_DEV_ADMIN") == "1")
+{
+    app.UseCloudflareAccessDevAdmin();
+}
+#endif
 app.UseMiddleware<ConditionalAuthRedirectMiddleware>();
 app.UseAuthorization();
 app.UseMiddleware<AccessLogMiddleware>();
