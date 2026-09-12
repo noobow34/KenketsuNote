@@ -67,11 +67,15 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 });
 app.UseRouting();
 app.UseAuthentication();
-// 手元での実行ではCloudflareを経由せずAccessのJWTが手に入らないため、明示的に指定したときだけ管理者になりすます
+#if DEBUG
+// 手元での実行ではCloudflareを経由せずAccessのJWTが手に入らないため、明示的に指定したときだけ管理者になりすます。
+// 本番は -c Release で publish するのでこのブロックごとバイナリに入らない。
+// ASPNETCORE_ENVIRONMENT を取り違えても発火しようがない状態にしておく
 if (app.Environment.IsDevelopment() && Environment.GetEnvironmentVariable("CF_ACCESS_DEV_ADMIN") == "1")
 {
     app.UseCloudflareAccessDevAdmin();
 }
+#endif
 app.UseMiddleware<ConditionalAuthRedirectMiddleware>();
 app.UseAuthorization();
 app.UseMiddleware<AccessLogMiddleware>();
